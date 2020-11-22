@@ -19,9 +19,6 @@ from t5.models import mesh_transformer
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-tf.disable_v2_behavior()
-tf.enable_eager_execution()
-
 
 class MeshDatasetFnsTest(test_utils.FakeMixtureTest):
     def check_ds_shape(self, ds, sequence_length):
