@@ -1,4 +1,6 @@
-# T5: Text-To-Text Transfer Transformer
+# A mini-modified [T5: Text-To-Text Transfer Transformer] version to suite `kineticengines` 
+
+
 
 
 [![Build Status](https://github.com/google-research/text-to-text-transfer-transformer/workflows/build/badge.svg)](https://github.com/google-research/text-to-text-transfer-transformer/actions?query=workflow%3Abuild)
