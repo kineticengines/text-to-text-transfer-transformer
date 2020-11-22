@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Preprocess tensorflow.data.Dataset()."""
 
 import collections
@@ -25,7 +24,7 @@ from absl import logging
 import babel
 import gin
 from t5.data import utils
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 
 # We disable no-value-for-parameter since the utils.map_over_dataset leads to
 # a false positive when seeds are provided.
@@ -37,7 +36,7 @@ FeatureType = Mapping[str, tf.Tensor]
 
 @utils.map_over_dataset
 def rekey(x, key_map=None):
-  """Replace the feature keys according to the mapping in `key_map`.
+    """Replace the feature keys according to the mapping in `key_map`.
 
   For example, if the dataset returns examples of the format:
   {'foo': 'something', 'bar': 'something else'}
@@ -52,17 +51,17 @@ def rekey(x, key_map=None):
   Returns:
     A preprocessed example with the format listed above.
   """
-  if key_map:
-    return {
-        new_key: x[old_key] if old_key else ''
-        for new_key, old_key in key_map.items()
-    }
-  return x
+    if key_map:
+        return {
+            new_key: x[old_key] if old_key else ''
+            for new_key, old_key in key_map.items()
+        }
+    return x
 
 
 @utils.map_over_dataset
 def translate(x, source_language, target_language):
-  """Convert a translation dataset to a text2text pair.
+    """Convert a translation dataset to a text2text pair.
 
   For example, say the dataset returns examples of this format:
     {'de': 'Das ist gut.', 'en': 'That is good.'}
@@ -79,28 +78,27 @@ def translate(x, source_language, target_language):
   Returns:
     A preprocessed example with the format listed above.
   """
-  # Language codes like zh-cn are not supported; use only the first 2 chars
-  for language in (source_language, target_language):
-    if language != language[:2]:
-      logging.warning(
-          'Extended language code %s not supported. Falling back on %s.',
-          language, language[:2]
-      )
-  lang_id_to_string = {
-      source_language: babel.Locale(source_language[:2]).english_name,
-      target_language: babel.Locale(target_language[:2]).english_name,
-  }
-  src_str = 'translate {}'.format(lang_id_to_string[source_language])
-  tgt_str = ' to {}: '.format(lang_id_to_string[target_language])
-  return {
-      'inputs': tf.strings.join([src_str, tgt_str, x[source_language]]),
-      'targets': x[target_language],
-  }
+    # Language codes like zh-cn are not supported; use only the first 2 chars
+    for language in (source_language, target_language):
+        if language != language[:2]:
+            logging.warning(
+                'Extended language code %s not supported. Falling back on %s.',
+                language, language[:2])
+    lang_id_to_string = {
+        source_language: babel.Locale(source_language[:2]).english_name,
+        target_language: babel.Locale(target_language[:2]).english_name,
+    }
+    src_str = 'translate {}'.format(lang_id_to_string[source_language])
+    tgt_str = ' to {}: '.format(lang_id_to_string[target_language])
+    return {
+        'inputs': tf.strings.join([src_str, tgt_str, x[source_language]]),
+        'targets': x[target_language],
+    }
 
 
 @utils.map_over_dataset
 def summarize(x, article_key, summary_key):
-  """Convert a summarization dataset to a text2text pair.
+    """Convert a summarization dataset to a text2text pair.
 
   For example, say the dataset returns examples of this format:
     {'article': <article>, 'highlights': <summary>}
@@ -115,11 +113,11 @@ def summarize(x, article_key, summary_key):
   Returns:
     A preprocessed example with the format listed above.
   """
-  strs_to_join = ['summarize:', x[article_key]]
-  return {
-      'inputs': tf.strings.join(strs_to_join, separator=' '),
-      'targets': x[summary_key],
-  }
+    strs_to_join = ['summarize:', x[article_key]]
+    return {
+        'inputs': tf.strings.join(strs_to_join, separator=' '),
+        'targets': x[summary_key],
+    }
 
 
 # Unicode ranges for characters in non-spaced languages.
@@ -149,7 +147,7 @@ NON_SPACED_LANGUAGE_RANGES = (
 
 @utils.map_over_dataset
 def pad_nonspaced_languages(x, text_key='text'):
-  """Pad non-spaced languages with spaces around each character.
+    """Pad non-spaced languages with spaces around each character.
 
   Args:
     x: an example to process.
@@ -159,34 +157,34 @@ def pad_nonspaced_languages(x, text_key='text'):
   Returns:
     A preprocessed example.
   """
-  res = dict(x)
-  text = res[text_key]
-  # Add spaces around any character from a non-spaced language.
-  pattern = ''.join(NON_SPACED_LANGUAGE_RANGES)
-  text = tf.strings.regex_replace(text, u'([{}])'.format(pattern), r' \1 ')
-  # Collapse consecutive whitespace into one space.
-  text = tf.strings.regex_replace(text, r'\s+', ' ')
-  res[text_key] = text
-  return res
+    res = dict(x)
+    text = res[text_key]
+    # Add spaces around any character from a non-spaced language.
+    pattern = ''.join(NON_SPACED_LANGUAGE_RANGES)
+    text = tf.strings.regex_replace(text, u'([{}])'.format(pattern), r' \1 ')
+    # Collapse consecutive whitespace into one space.
+    text = tf.strings.regex_replace(text, r'\s+', ' ')
+    res[text_key] = text
+    return res
 
 
 def _pad_punctuation(text):
-  """Adds spaces around punctuation."""
-  # Add space around punctuation.
-  text = tf.strings.regex_replace(text, r'(\W)', r' \1 ')
-  # Collapse consecutive whitespace into one space.
-  text = tf.strings.regex_replace(text, r'\s+', ' ')
-  return text
+    """Adds spaces around punctuation."""
+    # Add space around punctuation.
+    text = tf.strings.regex_replace(text, r'(\W)', r' \1 ')
+    # Collapse consecutive whitespace into one space.
+    text = tf.strings.regex_replace(text, r'\s+', ' ')
+    return text
 
 
 def _string_join(lst):
-  # Join on space, but collapse consecutive spaces.
-  out = tf.strings.join(lst, separator=' ')
-  return tf.strings.regex_replace(out, r'\s+', ' ')
+    # Join on space, but collapse consecutive spaces.
+    out = tf.strings.join(lst, separator=' ')
+    return tf.strings.regex_replace(out, r'\s+', ' ')
 
 
 def trivia_qa(dataset):
-  """Convert a TriviaQA example to multiple flattened examples.
+    """Convert a TriviaQA example to multiple flattened examples.
 
   TriviaQA produces examples with this form:
     {'entity_pages': {dict of wiki entities},
@@ -202,8 +200,8 @@ def trivia_qa(dataset):
   Returns:
     A preprocessed tf.data.Dataset with the format listed above.
   """
-  def triviaqa_question_answer_context(x):
-    """Extracts matched contexts and answers.
+    def triviaqa_question_answer_context(x):
+        """Extracts matched contexts and answers.
 
     Returns all matched (question-context, answer) pairs.
 
@@ -213,77 +211,75 @@ def trivia_qa(dataset):
     Returns:
       Flattened samples: (question-context, answer).
     """
-    contexts = []
-    if 'entity_pages' in x:
-      contexts.append(x['entity_pages']['wiki_context'])
-    if 'search_results' in x:
-      contexts.append(x['search_results']['search_context'])
-    contexts = tf.concat(contexts, 0)
+        contexts = []
+        if 'entity_pages' in x:
+            contexts.append(x['entity_pages']['wiki_context'])
+        if 'search_results' in x:
+            contexts.append(x['search_results']['search_context'])
+        contexts = tf.concat(contexts, 0)
 
-    q = _pad_punctuation(x['question'])
-    answers = x['answer']['normalized_aliases']
+        q = _pad_punctuation(x['question'])
+        answers = x['answer']['normalized_aliases']
 
-    combination_size = tf.size(answers)*tf.size(contexts)
-    find_answers = tf.TensorArray(
-        tf.bool, size=combination_size, dynamic_size=True)
-    selected_answers = tf.TensorArray(
-        tf.string, size=combination_size, dynamic_size=True)
-    join_q_c = tf.TensorArray(
-        tf.string, size=combination_size, dynamic_size=True)
+        combination_size = tf.size(answers) * tf.size(contexts)
+        find_answers = tf.TensorArray(tf.bool,
+                                      size=combination_size,
+                                      dynamic_size=True)
+        selected_answers = tf.TensorArray(tf.string,
+                                          size=combination_size,
+                                          dynamic_size=True)
+        join_q_c = tf.TensorArray(tf.string,
+                                  size=combination_size,
+                                  dynamic_size=True)
 
-    def cond_fn(i, find_answers, selected_answers, join_q_c):
-      del find_answers, selected_answers, join_q_c  # Unused
-      return tf.less(i, combination_size)
+        def cond_fn(i, find_answers, selected_answers, join_q_c):
+            del find_answers, selected_answers, join_q_c  # Unused
+            return tf.less(i, combination_size)
 
-    def body_fn(i, find_answers, selected_answers, join_q_c):
-      """Find answers from contexts and join."""
-      context_idx = tf.math.floordiv(i, tf.size(answers))
-      answer_idx = tf.math.mod(i, tf.size(answers))
+        def body_fn(i, find_answers, selected_answers, join_q_c):
+            """Find answers from contexts and join."""
+            context_idx = tf.math.floordiv(i, tf.size(answers))
+            answer_idx = tf.math.mod(i, tf.size(answers))
 
-      a = _pad_punctuation(answers[answer_idx])
-      a_ = tf.strings.join(['.*', a, '.*'])
-      c = _pad_punctuation(contexts[context_idx])
-      find_a = tf.strings.regex_full_match(
-          tf.strings.lower(c),
-          tf.strings.lower(a_))
-      find_answers = find_answers.write(i, find_a)
-      selected_answers = selected_answers.write(i, a)
+            a = _pad_punctuation(answers[answer_idx])
+            a_ = tf.strings.join(['.*', a, '.*'])
+            c = _pad_punctuation(contexts[context_idx])
+            find_a = tf.strings.regex_full_match(tf.strings.lower(c),
+                                                 tf.strings.lower(a_))
+            find_answers = find_answers.write(i, find_a)
+            selected_answers = selected_answers.write(i, a)
 
-      join_q_c_str = _string_join(['question:', q, 'context:', c])
-      join_q_c = join_q_c.write(i, join_q_c_str)
-      return (i + 1, find_answers, selected_answers, join_q_c)
+            join_q_c_str = _string_join(['question:', q, 'context:', c])
+            join_q_c = join_q_c.write(i, join_q_c_str)
+            return (i + 1, find_answers, selected_answers, join_q_c)
 
-    _, find_answers, selected_answers, join_q_c = tf.while_loop(
-        cond_fn,
-        body_fn,
-        loop_vars=[
-            tf.constant(0), find_answers, selected_answers,
-            join_q_c
-        ])
-    find_answers = find_answers.stack()
-    selected_answers = selected_answers.stack()
-    join_q_c = join_q_c.stack()
+        _, find_answers, selected_answers, join_q_c = tf.while_loop(
+            cond_fn,
+            body_fn,
+            loop_vars=[
+                tf.constant(0), find_answers, selected_answers, join_q_c
+            ])
+        find_answers = find_answers.stack()
+        selected_answers = selected_answers.stack()
+        join_q_c = join_q_c.stack()
 
-    selected_answers = tf.boolean_mask(selected_answers, find_answers)
-    selected_join_q_c = tf.boolean_mask(join_q_c, find_answers)
+        selected_answers = tf.boolean_mask(selected_answers, find_answers)
+        selected_join_q_c = tf.boolean_mask(join_q_c, find_answers)
 
-    return selected_join_q_c, selected_answers
+        return selected_join_q_c, selected_answers
 
-  def my_fn(x):
-    """Create TriviaQA example."""
-    join_q_c, a = triviaqa_question_answer_context(x)
-    return {
-        'inputs': join_q_c,
-        'targets': a
-    }
+    def my_fn(x):
+        """Create TriviaQA example."""
+        join_q_c, a = triviaqa_question_answer_context(x)
+        return {'inputs': join_q_c, 'targets': a}
 
-  dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
-  return dataset.unbatch()
+    dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
+    return dataset.unbatch()
 
 
 @utils.map_over_dataset
 def squad(x, include_context=True):
-  """Convert SQuAD examples to a text2text pair.
+    """Convert SQuAD examples to a text2text pair.
 
   SQuAD produces examples with this form:
     {'id': <id>, context': <article>, 'question': <question>,
@@ -300,25 +296,25 @@ def squad(x, include_context=True):
   Returns:
     A preprocessed example with the format listed above.
   """
-  a = _pad_punctuation(x['answers']['text'])
-  q = _pad_punctuation(x['question'])
-  c = _pad_punctuation(x['context'])
-  if include_context:
-    inputs = _string_join(['question:', q, 'context:', c])
-  else:
-    inputs = _string_join(['squad trivia question:', q])
-  return {
-      'inputs': inputs,
-      'targets': a[0],
-      'id': x['id'],
-      'context': c,
-      'question': q,
-      'answers': a
-  }
+    a = _pad_punctuation(x['answers']['text'])
+    q = _pad_punctuation(x['question'])
+    c = _pad_punctuation(x['context'])
+    if include_context:
+        inputs = _string_join(['question:', q, 'context:', c])
+    else:
+        inputs = _string_join(['squad trivia question:', q])
+    return {
+        'inputs': inputs,
+        'targets': a[0],
+        'id': x['id'],
+        'context': c,
+        'question': q,
+        'answers': a
+    }
 
 
 def _span_answer(context, answer_text):
-  """Finds start/end indices of answer_text in context after space tokenization.
+    """Finds start/end indices of answer_text in context after space tokenization.
 
   If answer_tokens is not a sublist of context_tokens, returns empty string.
 
@@ -329,13 +325,13 @@ def _span_answer(context, answer_text):
   Returns:
     A string tensor.
   """
-  def space_tok(s):
-    """Replace non-word chars with space then split on space."""
-    s = tf.strings.regex_replace(s, r'\W', ' ')
-    return tf.strings.split(input=[s], sep=' ').values
+    def space_tok(s):
+        """Replace non-word chars with space then split on space."""
+        s = tf.strings.regex_replace(s, r'\W', ' ')
+        return tf.strings.split(input=[s], sep=' ').values
 
-  def find_subseq(n, h):
-    """Finds index of needle subsequence inside haystack.
+    def find_subseq(n, h):
+        """Finds index of needle subsequence inside haystack.
 
     Args:
       n: 1-d tensor
@@ -344,27 +340,27 @@ def _span_answer(context, answer_text):
     Returns:
       Index of start of n if found found; otherwise -1.
     """
-    l_n = tf.size(n)
-    l_h = tf.size(h)
-    found = -1
-    for i in tf.range(0, l_h - l_n):
-      if tf.reduce_all(tf.equal(h[i:i+l_n], n)):
-        found = i
-        break
-    return found
+        l_n = tf.size(n)
+        l_h = tf.size(h)
+        found = -1
+        for i in tf.range(0, l_h - l_n):
+            if tf.reduce_all(tf.equal(h[i:i + l_n], n)):
+                found = i
+                break
+        return found
 
-  answer_tokens = space_tok(answer_text)
-  context_tokens = space_tok(context)
-  start = find_subseq(answer_tokens, context_tokens)
-  end = start + tf.size(answer_tokens) - 1
-  # Just take the first candidate that matches exactly.
-  if tf.equal(start, -1):
-    return ''
-  return tf.strings.format('start: {} end: {}', [start, end])
+    answer_tokens = space_tok(answer_text)
+    context_tokens = space_tok(context)
+    start = find_subseq(answer_tokens, context_tokens)
+    end = start + tf.size(answer_tokens) - 1
+    # Just take the first candidate that matches exactly.
+    if tf.equal(start, -1):
+        return ''
+    return tf.strings.format('start: {} end: {}', [start, end])
 
 
 def squad_span_space_tokenized(dataset):
-  """Convert SQuAD examples to a text2text pair with span output.
+    """Convert SQuAD examples to a text2text pair with span output.
 
   SQuAD produces examples with this form:
     {'context': <article>, 'question': <question>,
@@ -383,15 +379,15 @@ def squad_span_space_tokenized(dataset):
   Returns:
     A preprocessed tf.data.Dataset with the format listed above.
   """
-  def my_fn(x):
-    """Create squad example as in squad_span_char, but tokenized on spaces."""
-    res = dict(x)
-    res['targets'] = _span_answer(x['context'], x['targets'])
-    return res
+    def my_fn(x):
+        """Create squad example as in squad_span_char, but tokenized on spaces."""
+        res = dict(x)
+        res['targets'] = _span_answer(x['context'], x['targets'])
+        return res
 
-  dataset = squad(dataset)
-  dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
-  return dataset.filter(lambda x: tf.strings.length(x['targets']) > 0)
+    dataset = squad(dataset)
+    dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
+    return dataset.filter(lambda x: tf.strings.length(x['targets']) > 0)
 
 
 def random_split_text(dataset,
@@ -399,7 +395,7 @@ def random_split_text(dataset,
                       min_words_per_segment=16,
                       max_words_per_segment=512,
                       max_words_total=8192):
-  """Randomly split single-string examples into multiple examples each.
+    """Randomly split single-string examples into multiple examples each.
 
   Segment lengths are chosen according to a log-uniform distribution.
   Each incoming string is chopped into multiple equal-length examples
@@ -426,8 +422,8 @@ def random_split_text(dataset,
   Returns:
     a dataset
   """
-  def random_chunk(x, chunk_size, seed):
-    """Pick a random chunk of a 1d Tensor.
+    def random_chunk(x, chunk_size, seed):
+        """Pick a random chunk of a 1d Tensor.
 
     The tensor is divided into chunks of length chunk_size, with the last
     chunk being potentially smaller.  A random chunk is returned.
@@ -439,19 +435,18 @@ def random_split_text(dataset,
     Returns:
       a 1d tf.Tensor with length <= chunk_size
     """
-    size = tf.size(x)
-    num_chunks = tf.maximum(1, (size - 1) // chunk_size + 1)
-    chunk_num = tf.random.stateless_uniform(
-        [],
-        seed=seed,
-        minval=0,
-        maxval=num_chunks,
-        dtype=tf.int32)
-    return x[chunk_size * chunk_num:chunk_size * (chunk_num + 1)]
+        size = tf.size(x)
+        num_chunks = tf.maximum(1, (size - 1) // chunk_size + 1)
+        chunk_num = tf.random.stateless_uniform([],
+                                                seed=seed,
+                                                minval=0,
+                                                maxval=num_chunks,
+                                                dtype=tf.int32)
+        return x[chunk_size * chunk_num:chunk_size * (chunk_num + 1)]
 
-  @utils.map_over_dataset(num_seeds=2)
-  def my_fn(x, seeds):
-    """Split one string into multiple strings.
+    @utils.map_over_dataset(num_seeds=2)
+    def my_fn(x, seeds):
+        """Split one string into multiple strings.
 
     Args:
       x: a feature dictionary
@@ -459,55 +454,50 @@ def random_split_text(dataset,
     Returns:
       a feature dictionary
     """
-    text = x[text_key]
-    words = tf.strings.split([text]).values
-    if max_words_total:
-      words = random_chunk(words, max_words_total, seed=seeds[0])
-    n_words = tf.size(words)
-    # first pick a length (number of words per segment)
-    length = tf.cast(
-        tf.exp(
-            tf.random.stateless_uniform(
-                [],
-                minval=math.log(min_words_per_segment),
-                maxval=math.log(max_words_per_segment),
-                seed=seeds[1],
-            )
-        ),
-        tf.int32)
-    # Pad to a multiple of length, then use tf.reshape to split up the words
-    # into num_segments segments each of the given length.
-    num_segments = tf.cast(
-        tf.math.ceil(
-            tf.cast(n_words, tf.float32) / tf.cast(length, tf.float32)
-        ),
-        tf.int32)
-    padding = num_segments * length - n_words
-    words = tf.pad(words, [[0, padding]])
-    words = tf.reshape(words, [-1, length])
-    # Finally, join with spaces and strip.  The padding turns into a bunch of
-    # spaces that get stripped out.
-    words = tf.strings.reduce_join(words, axis=1, separator=' ')
-    return {text_key: tf.strings.strip(words)}
+        text = x[text_key]
+        words = tf.strings.split([text]).values
+        if max_words_total:
+            words = random_chunk(words, max_words_total, seed=seeds[0])
+        n_words = tf.size(words)
+        # first pick a length (number of words per segment)
+        length = tf.cast(
+            tf.exp(
+                tf.random.stateless_uniform(
+                    [],
+                    minval=math.log(min_words_per_segment),
+                    maxval=math.log(max_words_per_segment),
+                    seed=seeds[1],
+                )), tf.int32)
+        # Pad to a multiple of length, then use tf.reshape to split up the words
+        # into num_segments segments each of the given length.
+        num_segments = tf.cast(
+            tf.math.ceil(
+                tf.cast(n_words, tf.float32) / tf.cast(length, tf.float32)),
+            tf.int32)
+        padding = num_segments * length - n_words
+        words = tf.pad(words, [[0, padding]])
+        words = tf.reshape(words, [-1, length])
+        # Finally, join with spaces and strip.  The padding turns into a bunch of
+        # spaces that get stripped out.
+        words = tf.strings.reduce_join(words, axis=1, separator=' ')
+        return {text_key: tf.strings.strip(words)}
 
-  return my_fn(dataset).unbatch()
+    return my_fn(dataset).unbatch()
 
 
 def _split_text_to_words(dataset, text_key='text', min_num_words=2):
-  """Split text to words and filter out examples with too few words."""
-  def split(x):
-    res = dict(x)
-    res['words'] = tf.strings.split([x[text_key]]).values
-    return res
+    """Split text to words and filter out examples with too few words."""
+    def split(x):
+        res = dict(x)
+        res['words'] = tf.strings.split([x[text_key]]).values
+        return res
 
-  dataset = dataset.map(split, num_parallel_calls=AUTOTUNE)
-  return dataset.filter(lambda x: tf.size(x['words']) >= min_num_words)
+    dataset = dataset.map(split, num_parallel_calls=AUTOTUNE)
+    return dataset.filter(lambda x: tf.size(x['words']) >= min_num_words)
 
 
-def fill_in_the_blank(dataset,
-                      text_key='text',
-                      label='fill: '):
-  """Create a dataset consisting of fill-in-the-blank text examples.
+def fill_in_the_blank(dataset, text_key='text', label='fill: '):
+    """Create a dataset consisting of fill-in-the-blank text examples.
 
   The input examples should have a key text_key associated with a tf.string
   value.
@@ -547,9 +537,9 @@ def fill_in_the_blank(dataset,
   Returns:
     a tf.data.Dataset
   """
-  @utils.map_over_dataset(num_seeds=3)
-  def my_fn(x, seeds):
-    """Generates two preprocessed examples that are roughly inverses.
+    @utils.map_over_dataset(num_seeds=3)
+    def my_fn(x, seeds):
+        """Generates two preprocessed examples that are roughly inverses.
 
     Args:
       x: an example dict with text pre-split in `words` feature.
@@ -558,70 +548,72 @@ def fill_in_the_blank(dataset,
       an example dict with two inputs and two targets, one for each resulting
       preprocessed example.
     """
-    words = x['words']
-    n_words = tf.size(words)
+        words = x['words']
+        n_words = tf.size(words)
 
-    # First select the break probability.  We pick this on a log-uniform
-    # distribution between 1/(n_words + 1) and  1/2.  This means that some
-    # sequences will be chopped roughly and others finely.
-    min_log_p_break = -tf.math.log(tf.cast(n_words, tf.float32) + 2.0)
-    max_log_p_break = -tf.math.log(2.0)
-    p_break = tf.exp(
-        tf.random.stateless_uniform(
-            [],
-            minval=min_log_p_break,
-            maxval=max_log_p_break,
-            seed=seeds[0])
-    )
-    # craffel@ says that there may be bugs in random.uniform making it not
-    # really uniform.  This doesn't seem horribly important here, but may
-    # need another look.
-    breaks = tf.less(
-        tf.random.stateless_uniform([n_words - 1], seed=seeds[1]),
-        p_break)
-    def one_random_break():
-      pos = tf.random.stateless_uniform(
-          [],
-          minval=0,
-          maxval=n_words - 1,
-          dtype=tf.int32,
-          seed=seeds[2])
-      return tf.one_hot(pos, n_words - 1,
-                        dtype=tf.bool, on_value=True, off_value=False)
-    breaks = tf.cond(
-        tf.math.reduce_any(breaks), lambda: breaks, one_random_break)
-    breaks = tf.concat([[True], breaks], axis=0)
-    word_to_seq_id = tf.math.mod(tf.math.cumsum(tf.cast(breaks, tf.int32)), 2)
-    # separators:
-    #   if in your segment: ' '
-    #   if break to other segment: ' X'
-    #   else: ''
-    results = []
-    for seq_id in [0, 1]:
-      in_my_seq = tf.equal(word_to_seq_id, seq_id)
-      separator_strings = tf.where(
-          in_my_seq,
-          ' ',
-          tf.where(breaks, ' X', '')
-      )
-      word_strings = tf.where(in_my_seq, words, '')
-      all_strings = tf.stack([separator_strings, word_strings], axis=1)
-      results.append(tf.strings.substr(
-          tf.strings.reduce_join(all_strings), 1, tf.int32.max))
-    inputs = tf.stack([tf.strings.join([label, results[0]]),
-                       tf.strings.join([label, results[1]])])
-    targets = tf.stack([results[1], results[0]])
-    return {'inputs': inputs, 'targets': targets}
-  dataset = _split_text_to_words(dataset, text_key, min_num_words=2)
-  return my_fn(dataset).unbatch()
+        # First select the break probability.  We pick this on a log-uniform
+        # distribution between 1/(n_words + 1) and  1/2.  This means that some
+        # sequences will be chopped roughly and others finely.
+        min_log_p_break = -tf.math.log(tf.cast(n_words, tf.float32) + 2.0)
+        max_log_p_break = -tf.math.log(2.0)
+        p_break = tf.exp(
+            tf.random.stateless_uniform([],
+                                        minval=min_log_p_break,
+                                        maxval=max_log_p_break,
+                                        seed=seeds[0]))
+        # craffel@ says that there may be bugs in random.uniform making it not
+        # really uniform.  This doesn't seem horribly important here, but may
+        # need another look.
+        breaks = tf.less(
+            tf.random.stateless_uniform([n_words - 1], seed=seeds[1]), p_break)
+
+        def one_random_break():
+            pos = tf.random.stateless_uniform([],
+                                              minval=0,
+                                              maxval=n_words - 1,
+                                              dtype=tf.int32,
+                                              seed=seeds[2])
+            return tf.one_hot(pos,
+                              n_words - 1,
+                              dtype=tf.bool,
+                              on_value=True,
+                              off_value=False)
+
+        breaks = tf.cond(tf.math.reduce_any(breaks), lambda: breaks,
+                         one_random_break)
+        breaks = tf.concat([[True], breaks], axis=0)
+        word_to_seq_id = tf.math.mod(tf.math.cumsum(tf.cast(breaks, tf.int32)),
+                                     2)
+        # separators:
+        #   if in your segment: ' '
+        #   if break to other segment: ' X'
+        #   else: ''
+        results = []
+        for seq_id in [0, 1]:
+            in_my_seq = tf.equal(word_to_seq_id, seq_id)
+            separator_strings = tf.where(in_my_seq, ' ',
+                                         tf.where(breaks, ' X', ''))
+            word_strings = tf.where(in_my_seq, words, '')
+            all_strings = tf.stack([separator_strings, word_strings], axis=1)
+            results.append(
+                tf.strings.substr(tf.strings.reduce_join(all_strings), 1,
+                                  tf.int32.max))
+        inputs = tf.stack([
+            tf.strings.join([label, results[0]]),
+            tf.strings.join([label, results[1]])
+        ])
+        targets = tf.stack([results[1], results[0]])
+        return {'inputs': inputs, 'targets': targets}
+
+    dataset = _split_text_to_words(dataset, text_key, min_num_words=2)
+    return my_fn(dataset).unbatch()
 
 
-def fill_in_the_blank_sized(
-    dataset,
-    size_bins=(1, 2, 4, 8, 16, 32, 64, 128, 256, 512),
-    text_key='text',
-    label='fill: '):
-  """Fill in the blank preprocessor that labels blank with a binned size.
+def fill_in_the_blank_sized(dataset,
+                            size_bins=(1, 2, 4, 8, 16, 32, 64, 128, 256, 512),
+                            text_key='text',
+                            label='fill: '):
+    """Fill in the blank preprocessor that labels blank with a binned size.
 
   The actual blank size is sampled uniformly from the inclusive range of the min
   and max bin. The blank is then filled in with the closest bin size to the
@@ -638,50 +630,53 @@ def fill_in_the_blank_sized(
   Returns:
     a tf.data.Dataset
   """
-  bins = sorted(size_bins)
+    bins = sorted(size_bins)
 
-  @utils.map_over_dataset(num_seeds=2)
-  def my_fn(x, seeds):
-    """Apply transformation."""
-    words = x['words']
-    n_words = tf.size(words)
+    @utils.map_over_dataset(num_seeds=2)
+    def my_fn(x, seeds):
+        """Apply transformation."""
+        words = x['words']
+        n_words = tf.size(words)
 
-    blank_size = tf.random.stateless_uniform(
-        [],
-        minval=bins[0],
-        maxval=tf.math.minimum(n_words, bins[-1]),
-        dtype=tf.dtypes.int32,
-        seed=seeds[0])
-    bin_delta = tf.math.abs(bins - blank_size)
-    bin_ = tf.gather(bins, tf.argmin(bin_delta))
-    blank_start = tf.random.stateless_uniform(
-        [],
-        minval=0,
-        maxval=tf.math.maximum(0, n_words-blank_size) + 1,
-        dtype=tf.dtypes.int32,
-        seed=seeds[1])
+        blank_size = tf.random.stateless_uniform([],
+                                                 minval=bins[0],
+                                                 maxval=tf.math.minimum(
+                                                     n_words, bins[-1]),
+                                                 dtype=tf.dtypes.int32,
+                                                 seed=seeds[0])
+        bin_delta = tf.math.abs(bins - blank_size)
+        bin_ = tf.gather(bins, tf.argmin(bin_delta))
+        blank_start = tf.random.stateless_uniform(
+            [],
+            minval=0,
+            maxval=tf.math.maximum(0, n_words - blank_size) + 1,
+            dtype=tf.dtypes.int32,
+            seed=seeds[1])
 
-    pre_blank = tf.strings.reduce_join(words[0:blank_start], separator=' ')
-    post_blank = tf.strings.reduce_join(
-        words[blank_start+blank_size:], separator=' ')
-    blank = tf.strings.format('_{}_', bin_)
-    # We strip to handle cases where blank is at beginning or end.
-    input_ = tf.strings.strip(
-        tf.strings.join([pre_blank, blank, post_blank], ' '))
-    input_ = tf.strings.join([label, input_])
-    target = tf.strings.reduce_join(
-        words[blank_start:blank_start+blank_size], separator=' ')
-    return {
-        'inputs': tf.strings.strip(input_),
-        'targets': tf.strings.strip(target)}
-  dataset = _split_text_to_words(dataset, text_key, min_num_words=2)
-  # Filter out examples with fewer words than the minimum.
-  dataset = dataset.filter(lambda x: tf.size(x['words']) >= bins[0])
-  return my_fn(dataset)
+        pre_blank = tf.strings.reduce_join(words[0:blank_start], separator=' ')
+        post_blank = tf.strings.reduce_join(words[blank_start + blank_size:],
+                                            separator=' ')
+        blank = tf.strings.format('_{}_', bin_)
+        # We strip to handle cases where blank is at beginning or end.
+        input_ = tf.strings.strip(
+            tf.strings.join([pre_blank, blank, post_blank], ' '))
+        input_ = tf.strings.join([label, input_])
+        target = tf.strings.reduce_join(words[blank_start:blank_start +
+                                              blank_size],
+                                        separator=' ')
+        return {
+            'inputs': tf.strings.strip(input_),
+            'targets': tf.strings.strip(target)
+        }
+
+    dataset = _split_text_to_words(dataset, text_key, min_num_words=2)
+    # Filter out examples with fewer words than the minimum.
+    dataset = dataset.filter(lambda x: tf.size(x['words']) >= bins[0])
+    return my_fn(dataset)
 
 
 def neighboring_pairs(dataset, text_key='text', reuse_sentences=True):
-  """Create a dataset consisting of neighboring sentence pairs.
+    """Create a dataset consisting of neighboring sentence pairs.
 
   The input examples should have a key text_key associated with a tf.string
   value.
@@ -706,54 +701,54 @@ def neighboring_pairs(dataset, text_key='text', reuse_sentences=True):
   Returns:
     a tf.data.Dataset
   """
+    def split_by_lines(dataset):
+        """Splits text in dataset by line, removing empty lines."""
+        def my_fn(text):
+            lines = tf.strings.split([text], sep='\n').values
+            return tf.strings.strip(lines)
 
-  def split_by_lines(dataset):
-    """Splits text in dataset by line, removing empty lines."""
-    def my_fn(text):
-      lines = tf.strings.split([text], sep='\n').values
-      return tf.strings.strip(lines)
+        dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
+        dataset = dataset.unbatch()
+        return dataset.filter(lambda x: tf.strings.length(x) > 0)
 
-    dataset = dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
+    def split_into_pairs(line):
+        """Split a given text example into pairs of neighboring sentences."""
+        # TODO(mmatena): Use better sentence segmentation.
+        sep = str(uuid.uuid4())
+        sentences = tf.strings.regex_replace(line, r'((?:\.|\!|\?)+)',
+                                             r'\1' + sep)
+        sentences = tf.strings.strip(tf.strings.split([sentences], sep).values)
+        if reuse_sentences:
+            firsts = sentences[:-1]
+            seconds = sentences[1:]
+        else:
+            firsts = sentences[:-1:2]
+            seconds = sentences[1::2]
+        return {
+            'first': firsts,
+            'second': seconds,
+        }
+
+    def example_len(x):
+        return tf.math.minimum(tf.strings.length(x['first']),
+                               tf.strings.length(x['second']))
+
+    # Split by lines.
+    dataset = dataset.map(lambda x: x[text_key], num_parallel_calls=AUTOTUNE)
+    dataset = split_by_lines(dataset)
+
+    # Get pairs of neighboring sentences.
+    dataset = dataset.map(split_into_pairs, num_parallel_calls=AUTOTUNE)
     dataset = dataset.unbatch()
-    return dataset.filter(lambda x: tf.strings.length(x) > 0)
 
-  def split_into_pairs(line):
-    """Split a given text example into pairs of neighboring sentences."""
-    # TODO(mmatena): Use better sentence segmentation.
-    sep = str(uuid.uuid4())
-    sentences = tf.strings.regex_replace(line, r'((?:\.|\!|\?)+)', r'\1' + sep)
-    sentences = tf.strings.strip(tf.strings.split([sentences], sep).values)
-    if reuse_sentences:
-      firsts = sentences[:-1]
-      seconds = sentences[1:]
-    else:
-      firsts = sentences[:-1:2]
-      seconds = sentences[1::2]
-    return {
-        'first': firsts,
-        'second': seconds,
-    }
-
-  def example_len(x):
-    return tf.math.minimum(
-        tf.strings.length(x['first']), tf.strings.length(x['second']))
-
-  # Split by lines.
-  dataset = dataset.map(lambda x: x[text_key], num_parallel_calls=AUTOTUNE)
-  dataset = split_by_lines(dataset)
-
-  # Get pairs of neighboring sentences.
-  dataset = dataset.map(split_into_pairs, num_parallel_calls=AUTOTUNE)
-  dataset = dataset.unbatch()
-
-  # Remove examples with empty strings.
-  dataset = dataset.filter(lambda x: example_len(x) > 0)
-  return dataset
+    # Remove examples with empty strings.
+    dataset = dataset.filter(lambda x: example_len(x) > 0)
+    return dataset
 
 
 @utils.map_over_dataset
 def glue(x, benchmark_name, label_names, feature_names=None, id_key='idx'):
-  """Convert a dataset from glue to text2text examples.
+    """Convert a dataset from glue to text2text examples.
 
   This function uses the feature names from the dataset to unpack examples into
   a format amenable for a text2text problem. For example, consider the Quora
@@ -791,51 +786,51 @@ def glue(x, benchmark_name, label_names, feature_names=None, id_key='idx'):
   Returns:
     A preprocessed example.
   """
-  # If an ordering is not provided, sort feature keys to ensure a consistent
-  # order.
-  feature_keys = (
-      feature_names or sorted(set(x.keys()).difference(['label', 'idx'])))
-  # Pack keys (formatted as " key: ") and corresponding text feature
-  strs_to_join = []
-  for key in feature_keys:
-    strs_to_join.append('{}:'.format(key))
-    strs_to_join.append(x[key])
-  # Add benchmark name at the start
-  strs_to_join.insert(0, benchmark_name)
-  label_name = tf.cond(
-      # When no label is provided (label == -1), use "<unk>"
-      tf.equal(x['label'], -1),
-      lambda: tf.constant('<unk>'),
-      # Otherwise grab the label text from label_names
-      lambda: tf.gather(label_names, x['label']),
-  )
-  joined = tf.strings.join(strs_to_join, separator=' ')
+    # If an ordering is not provided, sort feature keys to ensure a consistent
+    # order.
+    feature_keys = (feature_names
+                    or sorted(set(x.keys()).difference(['label', 'idx'])))
+    # Pack keys (formatted as " key: ") and corresponding text feature
+    strs_to_join = []
+    for key in feature_keys:
+        strs_to_join.append('{}:'.format(key))
+        strs_to_join.append(x[key])
+    # Add benchmark name at the start
+    strs_to_join.insert(0, benchmark_name)
+    label_name = tf.cond(
+        # When no label is provided (label == -1), use "<unk>"
+        tf.equal(x['label'], -1),
+        lambda: tf.constant('<unk>'),
+        # Otherwise grab the label text from label_names
+        lambda: tf.gather(label_names, x['label']),
+    )
+    joined = tf.strings.join(strs_to_join, separator=' ')
 
-  ex = {}
+    ex = {}
 
-  if benchmark_name == 'multirc':
-    # Remove HTML markup.
-    joined = tf.strings.regex_replace(joined, '<br>', ' ')
-    joined = tf.strings.regex_replace(joined, '<(/)?b>', '')
+    if benchmark_name == 'multirc':
+        # Remove HTML markup.
+        joined = tf.strings.regex_replace(joined, '<br>', ' ')
+        joined = tf.strings.regex_replace(joined, '<(/)?b>', '')
 
-    # Store the data index in the returned example (used by eval)
-    ex['idx/paragraph'] = x['idx']['paragraph']
-    ex['idx/question'] = x['idx']['question']
-    ex['idx/answer'] = x['idx']['answer']
-  else:
-    # Store the data index in the returned example (used by eval)
-    if id_key:
-      ex['idx'] = x[id_key]
+        # Store the data index in the returned example (used by eval)
+        ex['idx/paragraph'] = x['idx']['paragraph']
+        ex['idx/question'] = x['idx']['question']
+        ex['idx/answer'] = x['idx']['answer']
+    else:
+        # Store the data index in the returned example (used by eval)
+        if id_key:
+            ex['idx'] = x[id_key]
 
-  ex['inputs'] = joined
-  ex['targets'] = label_name
+    ex['inputs'] = joined
+    ex['targets'] = label_name
 
-  return ex
+    return ex
 
 
 @utils.map_over_dataset
 def stsb(x):
-  """Convert STSB examples to text2text format.
+    """Convert STSB examples to text2text format.
 
   STSB maps two sentences to a floating point number between 1 and 5
   representing their semantic similarity. Since we are treating all tasks as
@@ -868,17 +863,17 @@ def stsb(x):
   Returns:
     A preprocessed example.
   """
-  strs_to_join = [
-      'stsb sentence1:', x['sentence1'], 'sentence2:', x['sentence2']
-  ]
-  label_string = tf.as_string(tf.round(x['label'] * 5) / 5, precision=1)
-  joined = tf.strings.join(strs_to_join, separator=' ')
-  return {'inputs': joined, 'targets': label_string, 'idx': x['idx']}
+    strs_to_join = [
+        'stsb sentence1:', x['sentence1'], 'sentence2:', x['sentence2']
+    ]
+    label_string = tf.as_string(tf.round(x['label'] * 5) / 5, precision=1)
+    joined = tf.strings.join(strs_to_join, separator=' ')
+    return {'inputs': joined, 'targets': label_string, 'idx': x['idx']}
 
 
 @utils.map_over_dataset
 def wsc(x):
-  """Convert WSC examples to text2text format.
+    """Convert WSC examples to text2text format.
 
   WSC includes a sentence along with 2 'spans': the first denoting a noun and
   the other a pronoun. The 'label' specifies whether or not the pronoun is
@@ -906,37 +901,37 @@ def wsc(x):
   Returns:
     A preprocessed example.
   """
+    def _mark_span(text, span_str, span_idx, mark):
+        pattern_tmpl = r'^((?:\S+\s){N})(W)'
+        pattern = tf.strings.regex_replace(pattern_tmpl, 'N',
+                                           tf.as_string(span_idx))
+        pattern = tf.strings.regex_replace(pattern, 'W', span_str)
+        return tf.strings.regex_replace(text, pattern,
+                                        r'\1{0} \2 {0}'.format(mark))
 
-  def _mark_span(text, span_str, span_idx, mark):
-    pattern_tmpl = r'^((?:\S+\s){N})(W)'
-    pattern = tf.strings.regex_replace(pattern_tmpl, 'N',
-                                       tf.as_string(span_idx))
-    pattern = tf.strings.regex_replace(pattern, 'W', span_str)
-    return tf.strings.regex_replace(text, pattern, r'\1{0} \2 {0}'.format(mark))
+    text = x['text']
+    text = _mark_span(text, x['span1_text'], x['span1_index'], '*')
+    # Compensate for 2 added "words" added in previous step.
+    span2_index = x['span2_index'] + 2 * tf.cast(
+        x['span1_index'] < x['span2_index'], tf.int32)
+    text = _mark_span(text, x['span2_text'], span2_index, '#')
 
-  text = x['text']
-  text = _mark_span(text, x['span1_text'], x['span1_index'], '*')
-  # Compensate for 2 added "words" added in previous step.
-  span2_index = x['span2_index'] + 2 * tf.cast(
-      x['span1_index'] < x['span2_index'], tf.int32)
-  text = _mark_span(text, x['span2_text'], span2_index, '#')
+    # Add benchmark name at the start
+    strs_to_join = ['wsc', 'text:', text]
+    label_name = tf.cond(
+        # When no label is provided (label == -1), use "<unk>"
+        tf.equal(x['label'], -1),
+        lambda: tf.constant('<unk>'),
+        # Otherwise use False/True.
+        lambda: tf.gather(['False', 'True'], x['label']))
 
-  # Add benchmark name at the start
-  strs_to_join = ['wsc', 'text:', text]
-  label_name = tf.cond(
-      # When no label is provided (label == -1), use "<unk>"
-      tf.equal(x['label'], -1),
-      lambda: tf.constant('<unk>'),
-      # Otherwise use False/True.
-      lambda: tf.gather(['False', 'True'], x['label']))
-
-  joined = tf.strings.join(strs_to_join, separator=' ')
-  return {'inputs': joined, 'targets': label_name, 'idx': x['idx']}
+    joined = tf.strings.join(strs_to_join, separator=' ')
+    return {'inputs': joined, 'targets': label_name, 'idx': x['idx']}
 
 
 @gin.configurable
 def record(dataset):
-  """Convert ReCoRD examples to text2text examples.
+    """Convert ReCoRD examples to text2text examples.
 
   ReCoRD contains a passage, query containing a '@placeholder' string, and a set
   of entities that are the possible values of the placeholder. Each train and
@@ -969,66 +964,66 @@ def record(dataset):
   Returns:
     a tf.data.Dataset
   """
+    def process_answers(x):
+        """Helper fn to get one example per answer."""
+        ex = x.copy()
+        num_answers = tf.size(ex['answers'])
 
-  def process_answers(x):
-    """Helper fn to get one example per answer."""
-    ex = x.copy()
-    num_answers = tf.size(ex['answers'])
+        def duplicate_along_first_dim(t):
+            n_duplicates = tf.math.maximum(num_answers, 1)
+            return tf.broadcast_to(
+                t,
+                shape=tf.concat([[n_duplicates], tf.shape(t)], axis=0))
 
-    def duplicate_along_first_dim(t):
-      n_duplicates = tf.math.maximum(num_answers, 1)
-      return tf.broadcast_to(
-          t, shape=tf.concat([[n_duplicates], tf.shape(t)], axis=0))
+        for k, v in x.items():
+            if k != 'idx':
+                ex[k] = duplicate_along_first_dim(v)
+        ex['targets'] = tf.cond(tf.greater(num_answers,
+                                           0), lambda: x['answers'],
+                                lambda: tf.constant(['<unk>']))
+        ex['idx'] = {
+            'passage': duplicate_along_first_dim(x['idx']['passage']),
+            'query': duplicate_along_first_dim(x['idx']['query']),
+        }
 
-    for k, v in x.items():
-      if k != 'idx':
-        ex[k] = duplicate_along_first_dim(v)
-    ex['targets'] = tf.cond(
-        tf.greater(num_answers, 0), lambda: x['answers'],
-        lambda: tf.constant(['<unk>']))
-    ex['idx'] = {
-        'passage': duplicate_along_first_dim(x['idx']['passage']),
-        'query': duplicate_along_first_dim(x['idx']['query']),
-    }
+        return ex
 
-    return ex
+    def my_fn(x):
+        """Converts the processed example to text2text strings."""
+        passage = x['passage']
+        passage = tf.strings.regex_replace(passage,
+                                           r'(\.|\?|\!|\"|\')\n@highlight\n',
+                                           r'\1 ')
+        passage = tf.strings.regex_replace(passage, r'\n@highlight\n', '. ')
 
-  def my_fn(x):
-    """Converts the processed example to text2text strings."""
-    passage = x['passage']
-    passage = tf.strings.regex_replace(passage,
-                                       r'(\.|\?|\!|\"|\')\n@highlight\n',
-                                       r'\1 ')
-    passage = tf.strings.regex_replace(passage, r'\n@highlight\n', '. ')
+        strs_to_join = [
+            'record query:', x['query'], 'entities:',
+            tf.strings.reduce_join(x['entities'], separator=', '), 'passage:',
+            passage
+        ]
+        joined = tf.strings.join(strs_to_join, separator=' ')
 
-    strs_to_join = [
-        'record query:', x['query'], 'entities:',
-        tf.strings.reduce_join(x['entities'], separator=', '), 'passage:',
-        passage
-    ]
-    joined = tf.strings.join(strs_to_join, separator=' ')
+        ex = {}
 
-    ex = {}
+        # Store the data index in the returned example (used by eval)
+        ex['idx/passage'] = x['idx']['passage']
+        ex['idx/query'] = x['idx']['query']
 
-    # Store the data index in the returned example (used by eval)
-    ex['idx/passage'] = x['idx']['passage']
-    ex['idx/query'] = x['idx']['query']
+        ex['inputs'] = joined
+        # Note that "answers" has been converted to a single string by the
+        # process_answers function.
+        ex['targets'] = x['targets']
+        # Pass-through full list of answers for eval
+        ex['answers'] = x['answers']
+        return ex
 
-    ex['inputs'] = joined
-    # Note that "answers" has been converted to a single string by the
-    # process_answers function.
-    ex['targets'] = x['targets']
-    # Pass-through full list of answers for eval
-    ex['answers'] = x['answers']
-    return ex
-
-  dataset = dataset.map(process_answers, num_parallel_calls=AUTOTUNE)
-  dataset = dataset.unbatch()
-  return dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
+    dataset = dataset.map(process_answers, num_parallel_calls=AUTOTUNE)
+    dataset = dataset.unbatch()
+    return dataset.map(my_fn, num_parallel_calls=AUTOTUNE)
 
 
 def multi_translate(dataset, source_language, target_language):
-  """Convert a multi-translate dataset to a text2text pair.
+    """Convert a multi-translate dataset to a text2text pair.
 
   For example, say the dataset returns examples which have a 'translations'
   feature key so that examples have the following format:
@@ -1053,29 +1048,31 @@ def multi_translate(dataset, source_language, target_language):
   Returns:
     A preprocessed tf.data.Dataset with the format listed above.
   """
-  def filter_fn(x):
-    langs = x['translations']['language']
-    # Test whether both source/target_language appear in the language list
-    source_in_langs = tf.reduce_any(tf.equal(source_language, langs))
-    target_in_langs = tf.reduce_any(tf.equal(target_language, langs))
-    return tf.logical_and(source_in_langs, target_in_langs)
-  def map_fn(x):
-    langs = x['translations']['language']
-    # Retrieve the index in langs where source/target_language appears
-    src_idx = tf.squeeze(tf.where(tf.equal(langs, source_language)))
-    tgt_idx = tf.squeeze(tf.where(tf.equal(langs, target_language)))
-    return {
-        source_language: x['translations']['translation'][src_idx],
-        target_language: x['translations']['translation'][tgt_idx],
-    }
-  dataset = dataset.filter(filter_fn)
-  dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
-  return translate(dataset, source_language, target_language)
+    def filter_fn(x):
+        langs = x['translations']['language']
+        # Test whether both source/target_language appear in the language list
+        source_in_langs = tf.reduce_any(tf.equal(source_language, langs))
+        target_in_langs = tf.reduce_any(tf.equal(target_language, langs))
+        return tf.logical_and(source_in_langs, target_in_langs)
+
+    def map_fn(x):
+        langs = x['translations']['language']
+        # Retrieve the index in langs where source/target_language appears
+        src_idx = tf.squeeze(tf.where(tf.equal(langs, source_language)))
+        tgt_idx = tf.squeeze(tf.where(tf.equal(langs, target_language)))
+        return {
+            source_language: x['translations']['translation'][src_idx],
+            target_language: x['translations']['translation'][tgt_idx],
+        }
+
+    dataset = dataset.filter(filter_fn)
+    dataset = dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
+    return translate(dataset, source_language, target_language)
 
 
 @utils.map_over_dataset
 def definite_pronoun_resolution_simple(x, label='wsc:'):
-  """Converts DPR examples to a simple text to text format.
+    """Converts DPR examples to a simple text to text format.
 
   A typical example from the definite pronoun resolution dataset might look like
   {
@@ -1098,21 +1095,21 @@ def definite_pronoun_resolution_simple(x, label='wsc:'):
   Returns:
     A preprocessed example.
   """
-  # If there are multiple instances of the pronoun in the sentence, the first
-  # one is the one that needs to be resolved.
-  inputs = [
-      label,
-      tf.strings.regex_replace(
-          x['sentence'],
-          tf.strings.join([r' (', x['pronoun'], r')( |\.|,)']),
-          r' *\1*\2',
-          replace_global=False,
-      ),
-  ]
-  return {
-      'inputs': tf.strings.join(inputs, separator=' '),
-      'targets': x['candidates'][x['label']],
-  }
+    # If there are multiple instances of the pronoun in the sentence, the first
+    # one is the one that needs to be resolved.
+    inputs = [
+        label,
+        tf.strings.regex_replace(
+            x['sentence'],
+            tf.strings.join([r' (', x['pronoun'], r')( |\.|,)']),
+            r' *\1*\2',
+            replace_global=False,
+        ),
+    ]
+    return {
+        'inputs': tf.strings.join(inputs, separator=' '),
+        'targets': x['candidates'][x['label']],
+    }
 
 
 def next_sentence_prediction(dataset,
@@ -1122,7 +1119,7 @@ def next_sentence_prediction(dataset,
                              p_neighbors=0.5,
                              label='nsp: ',
                              buffer_size=50000):
-  """Create a dataset containing a next sentence prediction objective.
+    """Create a dataset containing a next sentence prediction objective.
 
   The input examples should have a key text_key associated with a tf.string
   value.
@@ -1155,77 +1152,77 @@ def next_sentence_prediction(dataset,
   Returns:
     a tf.data.Dataset
   """
-  sentence1_label, sentence2_label = '', ''
-  if label_sentences:
-    sentence1_label, sentence2_label = 'sentence1: ', 'sentence2: '
+    sentence1_label, sentence2_label = '', ''
+    if label_sentences:
+        sentence1_label, sentence2_label = 'sentence1: ', 'sentence2: '
 
-  empty = tf.constant('', dtype=tf.string, shape=[1])
+    empty = tf.constant('', dtype=tf.string, shape=[1])
 
-  dataset = neighboring_pairs(
-      dataset, text_key=text_key, reuse_sentences=reuse_sentences)
-  dataset = dataset.shuffle(buffer_size).batch(2, drop_remainder=True)
+    dataset = neighboring_pairs(dataset,
+                                text_key=text_key,
+                                reuse_sentences=reuse_sentences)
+    dataset = dataset.shuffle(buffer_size).batch(2, drop_remainder=True)
 
-  def some_are_empty(*tensors):
-    """See if at least one tensor has shape [0]."""
-    empty = [tf.equal(tf.size(t), 0) for t in tensors]
-    return tf.reduce_any(empty)
+    def some_are_empty(*tensors):
+        """See if at least one tensor has shape [0]."""
+        empty = [tf.equal(tf.size(t), 0) for t in tensors]
+        return tf.reduce_any(empty)
 
-  @utils.map_over_dataset(num_seeds=1)
-  def my_fn(x, seed):
-    """Function to be applied to each example in dataset."""
-    use_neighbors = (
-        tf.random.stateless_uniform(shape=[], seed=seed) < p_neighbors
-    )
-    firsts, seconds = tf.cond(
-        use_neighbors,
-        lambda: (x['first'], x['second']),
-        lambda: (x['first'], tf.stack([x['second'][1], x['second'][0]])),
-    )
-    relation_label = tf.cond(
-        use_neighbors,
-        lambda: 'next',
-        lambda: 'not_next',
-    )
+    @utils.map_over_dataset(num_seeds=1)
+    def my_fn(x, seed):
+        """Function to be applied to each example in dataset."""
+        use_neighbors = (tf.random.stateless_uniform(shape=[], seed=seed) <
+                         p_neighbors)
+        firsts, seconds = tf.cond(
+            use_neighbors,
+            lambda: (x['first'], x['second']),
+            lambda: (x['first'], tf.stack([x['second'][1], x['second'][0]])),
+        )
+        relation_label = tf.cond(
+            use_neighbors,
+            lambda: 'next',
+            lambda: 'not_next',
+        )
 
-    inputs = []
-    for i in range(2):
-      first_inputs = firsts[i]
-      second_inputs = seconds[i]
+        inputs = []
+        for i in range(2):
+            first_inputs = firsts[i]
+            second_inputs = seconds[i]
 
-      def create_examples(first_i=first_inputs, second_i=second_inputs):
-        return tf.strings.join([
-            label,
-            sentence1_label,
-            first_i,
-            ' ',
-            sentence2_label,
-            second_i,
-        ])
+            def create_examples(first_i=first_inputs, second_i=second_inputs):
+                return tf.strings.join([
+                    label,
+                    sentence1_label,
+                    first_i,
+                    ' ',
+                    sentence2_label,
+                    second_i,
+                ])
 
-      inpt = tf.cond(
-          some_are_empty(first_inputs, second_inputs),
-          lambda: empty,
-          create_examples,
-      )
-      inputs.append(tf.strings.strip(inpt))
-    inputs = tf.reshape(inputs, [-1])
-    targets = tf.reshape(2 * [relation_label], [-1])
+            inpt = tf.cond(
+                some_are_empty(first_inputs, second_inputs),
+                lambda: empty,
+                create_examples,
+            )
+            inputs.append(tf.strings.strip(inpt))
+        inputs = tf.reshape(inputs, [-1])
+        targets = tf.reshape(2 * [relation_label], [-1])
 
-    return {'inputs': inputs, 'targets': targets}
+        return {'inputs': inputs, 'targets': targets}
 
-  dataset = my_fn(dataset).unbatch()
+    dataset = my_fn(dataset).unbatch()
 
-  def example_len(x):
-    return tf.math.minimum(
-        tf.strings.length(x['inputs']), tf.strings.length(x['targets']))
+    def example_len(x):
+        return tf.math.minimum(tf.strings.length(x['inputs']),
+                               tf.strings.length(x['targets']))
 
-  # Remove examples with empty strings.
-  return dataset.filter(lambda x: example_len(x) > 0)
+    # Remove examples with empty strings.
+    return dataset.filter(lambda x: example_len(x) > 0)
 
 
 @utils.map_over_dataset
 def lm(x):
-  """Basic language modeling objective for text - empty inputs.
+    """Basic language modeling objective for text - empty inputs.
 
   Given inputs with the format:
   {"text": "Here is some text."}
@@ -1238,11 +1235,11 @@ def lm(x):
   Returns:
     A preprocessed example.
   """
-  return {'inputs': '', 'targets': x['text']}
+    return {'inputs': '', 'targets': x['text']}
 
 
 def _wsc_inputs(x):
-  """Given an example from SuperGLUE WSC, compute the 'inputs' value.
+    """Given an example from SuperGLUE WSC, compute the 'inputs' value.
 
   The output will look like a fill in the blank with the pronoun blanked out.
   For example, the text
@@ -1256,51 +1253,50 @@ def _wsc_inputs(x):
   Returns:
     A scalar string tensor.
   """
-  words = tf.strings.split([x['text']], sep=' ').values
+    words = tf.strings.split([x['text']], sep=' ').values
 
-  # We would need some special logic to handle the case where the pronoun is the
-  # first or last word in the text. None of the examples in WSC seem to have
-  # this, so we are ignoring these cases.
-  with tf.control_dependencies([
-      tf.assert_greater(x['span2_index'], 0),
-      tf.assert_less(x['span2_index'], tf.size(words)),
-  ]):
-    pronoun_index = tf.identity(x['span2_index'])
+    # We would need some special logic to handle the case where the pronoun is the
+    # first or last word in the text. None of the examples in WSC seem to have
+    # this, so we are ignoring these cases.
+    with tf.control_dependencies([
+            tf.assert_greater(x['span2_index'], 0),
+            tf.assert_less(x['span2_index'], tf.size(words)),
+    ]):
+        pronoun_index = tf.identity(x['span2_index'])
 
-  def create_input():
-    with tf.control_dependencies(
-        [tf.assert_equal(words[pronoun_index], x['span2_text'])]):
-      return tf.strings.join(
-          [
-              tf.strings.reduce_join(words[:pronoun_index], separator=' '),
-              'X',
-              tf.strings.reduce_join(
-                  words[pronoun_index + 1:], separator=' '),
-          ],
-          separator=' ',
-      )
+    def create_input():
+        with tf.control_dependencies(
+            [tf.assert_equal(words[pronoun_index], x['span2_text'])]):
+            return tf.strings.join(
+                [
+                    tf.strings.reduce_join(words[:pronoun_index],
+                                           separator=' '),
+                    'X',
+                    tf.strings.reduce_join(words[pronoun_index + 1:],
+                                           separator=' '),
+                ],
+                separator=' ',
+            )
 
-  # Handle some special cases.
-  if tf.equal(
-      x['text'],
-      'The boy continued to whip the pony , and eventually the pony threw him over. John laughed out quite loud. \"Good for him,\" he said. '
-      ):
-    return 'The boy continued to whip the pony , and eventually the pony threw him over. John laughed out quite loud. "Good for X ," he said.'
+    # Handle some special cases.
+    if tf.equal(
+            x['text'],
+            'The boy continued to whip the pony , and eventually the pony threw him over. John laughed out quite loud. \"Good for him,\" he said. '
+    ):
+        return 'The boy continued to whip the pony , and eventually the pony threw him over. John laughed out quite loud. "Good for X ," he said.'
 
-  # Using the span2_index, we get 'use' instead of 'it'.
-  if tf.equal(
-      x['text'],
-      'When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use it , but really for now, what more could they wish for?'
-      ):
-      return 'When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use X , but really for now, what more could they wish for?'
+    # Using the span2_index, we get 'use' instead of 'it'.
+    if tf.equal(
+            x['text'],
+            'When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use it , but really for now, what more could they wish for?'
+    ):
+        return 'When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use X , but really for now, what more could they wish for?'
 
-  return create_input()
+    return create_input()
 
 
-def wsc_simple(dataset,
-               label='wsc:',
-               correct_referent_only=False):
-  """Converts SuperGLUE WSC examples to a simple text to text format.
+def wsc_simple(dataset, label='wsc:', correct_referent_only=False):
+    """Converts SuperGLUE WSC examples to a simple text to text format.
 
   A typical example from SuperGLUE WSC might look like
   {
@@ -1329,32 +1325,32 @@ def wsc_simple(dataset,
   Returns:
     a tf.data.Dataset
   """
+    def map_fn(x):
+        """Function to be called for every example in dataset."""
+        inputs = [
+            label,
+            tf.strings.regex_replace(_wsc_inputs(x), r' X ',
+                                     ' *' + x['span2_text'] + '* '),
+        ]
+        referent = x['span1_text']
+        return {
+            'inputs': tf.strings.join(inputs, separator=' '),
+            # The reshape is necessary as otherwise the tensor has unknown rank.
+            'targets': tf.reshape(referent, shape=[]),
+            'label': x.get('label', 0),
+            'idx': x['idx'],
+        }
 
-  def map_fn(x):
-    """Function to be called for every example in dataset."""
-    inputs = [
-        label,
-        tf.strings.regex_replace(
-            _wsc_inputs(x), r' X ', ' *' + x['span2_text'] + '* '),
-    ]
-    referent = x['span1_text']
-    return {
-        'inputs': tf.strings.join(inputs, separator=' '),
-        # The reshape is necessary as otherwise the tensor has unknown rank.
-        'targets': tf.reshape(referent, shape=[]),
-        'label': x.get('label', 0),
-        'idx': x['idx'],
-    }
+    if correct_referent_only:
+        dataset = dataset.filter(
+            lambda x: tf.cast(x.get('label', False), tf.bool))
 
-  if correct_referent_only:
-    dataset = dataset.filter(lambda x: tf.cast(x.get('label', False), tf.bool))
-
-  return dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
+    return dataset.map(map_fn, num_parallel_calls=AUTOTUNE)
 
 
 @utils.map_over_dataset
 def wnli_simple(x, label='wsc:'):
-  """Converts GLUE WNLI examples to a simple text to text format.
+    """Converts GLUE WNLI examples to a simple text to text format.
 
   A typical example from WNLI might look like:
   {
@@ -1383,149 +1379,155 @@ def wnli_simple(x, label='wsc:'):
   Returns:
     A preprocessed example.
   """
-  pronouns = ['he', 'she', 'they', 'it', 'her', 'his', 'their', 'them', 'him']
-  PronounMatch = collections.namedtuple(  # pylint: disable=invalid-name
-      'PronounMatch', ['score', 'index_in_premise', 'candidate'])
-
-  def split_clean(s):
-    """Returns array of words with punctuation and capitalization removed."""
-    words = [
-        re.sub(r'(\.|,|\?|\!)$', '', w) for w in s.strip().lower().split(' ')
+    pronouns = [
+        'he', 'she', 'they', 'it', 'her', 'his', 'their', 'them', 'him'
     ]
-    return [w for w in words if w]
+    PronounMatch = collections.namedtuple(  # pylint: disable=invalid-name
+        'PronounMatch', ['score', 'index_in_premise', 'candidate'])
 
-  def get_all_pronoun_indices(s):
-    return [i for i, w in enumerate(s) if w in pronouns]
+    def split_clean(s):
+        """Returns array of words with punctuation and capitalization removed."""
+        words = [
+            re.sub(r'(\.|,|\?|\!)$', '', w)
+            for w in s.strip().lower().split(' ')
+        ]
+        return [w for w in words if w]
 
-  def get_post_match_size(hypothesis, words):
-    """Returns len of largest prefix of words that is substr of hypothesis."""
-    hypothesis = ' '.join(hypothesis)
-    for i in range(len(words)):
-      if ' '.join(words[:i + 1]) not in hypothesis:
-        return i
-    return len(words)
+    def get_all_pronoun_indices(s):
+        return [i for i, w in enumerate(s) if w in pronouns]
 
-  def get_pre_match_size(hypothesis, words):
-    """Returns len of largest suffix of words that is substr of hypothesis."""
-    return get_post_match_size(hypothesis[::-1], words[::-1])
+    def get_post_match_size(hypothesis, words):
+        """Returns len of largest prefix of words that is substr of hypothesis."""
+        hypothesis = ' '.join(hypothesis)
+        for i in range(len(words)):
+            if ' '.join(words[:i + 1]) not in hypothesis:
+                return i
+        return len(words)
 
-  def get_pronoun_match(premise, hypothesis, index):
-    """Return the PronounMatch for the pronoun at `index` in premise."""
-    pre, post = premise[:index], premise[index + 1:]
+    def get_pre_match_size(hypothesis, words):
+        """Returns len of largest suffix of words that is substr of hypothesis."""
+        return get_post_match_size(hypothesis[::-1], words[::-1])
 
-    pre_match_size = get_pre_match_size(hypothesis, pre)
-    post_match_size = get_post_match_size(hypothesis, post)
-    score = pre_match_size + post_match_size
+    def get_pronoun_match(premise, hypothesis, index):
+        """Return the PronounMatch for the pronoun at `index` in premise."""
+        pre, post = premise[:index], premise[index + 1:]
 
-    candidate = ''
-    if score:
-      pre_match = pre[-pre_match_size or len(pre):]
-      post_match = post[:post_match_size]
-      m = re.search(' '.join(pre_match + [r'(.+)'] + post_match),
-                    ' '.join(hypothesis))
-      if not m:
-        # Handle cases where the candidate is at the start of the hypthesis.
-        m = re.search(' '.join([r'^(.+)'] + post_match), ' '.join(hypothesis))
-      if not m:
-        # Handle cases where the candidate is at the end of the hypthesis.
-        m = re.search(' '.join(pre_match + [r'(.+)$']), ' '.join(hypothesis))
+        pre_match_size = get_pre_match_size(hypothesis, pre)
+        post_match_size = get_post_match_size(hypothesis, post)
+        score = pre_match_size + post_match_size
 
-      if m:
+        candidate = ''
+        if score:
+            pre_match = pre[-pre_match_size or len(pre):]
+            post_match = post[:post_match_size]
+            m = re.search(' '.join(pre_match + [r'(.+)'] + post_match),
+                          ' '.join(hypothesis))
+            if not m:
+                # Handle cases where the candidate is at the start of the hypthesis.
+                m = re.search(' '.join([r'^(.+)'] + post_match),
+                              ' '.join(hypothesis))
+            if not m:
+                # Handle cases where the candidate is at the end of the hypthesis.
+                m = re.search(' '.join(pre_match + [r'(.+)$']),
+                              ' '.join(hypothesis))
+
+            if m:
+                candidate = m.group(1)
+
+        return PronounMatch(score=score,
+                            index_in_premise=index,
+                            candidate=candidate)
+
+    def get_best_pronoun_match(premise, hypothesis):
+        """Returns the match for the pronoun in the premise to disambiguate."""
+        pronoun_indices = get_all_pronoun_indices(premise)
+        scoredpronouns = [
+            get_pronoun_match(premise, hypothesis, index)
+            for index in pronoun_indices
+        ]
+        return max(scoredpronouns, key=lambda x: x.score)
+
+    def highlight(sentence, index):
+        words = sentence.split(' ')
+        word = words[index]
+        if word[-1] in ['.', ',', '!', '?']:
+            highlighted = '*{}* {}'.format(word[:-1], word[-1])
+        else:
+            highlighted = '*{}*'.format(word)
+        return ' '.join(words[:index] + [highlighted] + words[index + 1:])
+
+    def make_nonpossessive(word):
+        # WSC simple targets will never be possessive, even when the pronoun is
+        # possesive.
+        if word.endswith("'"):
+            return word[:-1]
+        elif word.endswith("'s"):
+            return word[:-2]
+        else:
+            return word
+
+    def clean_up(candidate):
+        words = candidate.split(' ')
+        # Sometimes the candidate extraction messes up, and the candidate will start
+        # with the start of the hypothesis and extend to the correct candidate. We
+        # can try to clean up the candidate in some cases by removing everything up
+        # to the last article in the sentence.
+        article_index = max(
+            [words.index(art) for art in {'a', 'an', 'the'} if art in words]
+            or [0])
+        return ' '.join(words[article_index:])
+
+    def process_candidate(candidate, hypothesis):
+        """Handles special cases and adds proper punctuation/capitalization."""
+        candidate = clean_up(candidate)
+
+        pattern = '({})'.format(' '.join([
+            r'{}(?:\.|,|\?|\!)?'.format(re.escape(c))
+            for c in candidate.split(' ')
+        ]))
+        m = re.search(pattern, hypothesis, re.IGNORECASE)
+        if not m:
+            raise ValueError(
+                'Unable to find candidate "{}" in hypothesis "{}".'.format(
+                    candidate, hypothesis))
+
         candidate = m.group(1)
+        if candidate and candidate[-1] in ['.', ',', '!', '?']:
+            candidate = candidate[:-1]
+        return make_nonpossessive(candidate)
 
-    return PronounMatch(
-        score=score, index_in_premise=index, candidate=candidate)
+    def compute_inputs_and_targets(premise, hypothesis):
+        """Compute inputs and targets for WNLI simple."""
+        premise = tf.compat.as_text(premise.numpy())
+        hypothesis = tf.compat.as_text(hypothesis.numpy())
 
-  def get_best_pronoun_match(premise, hypothesis):
-    """Returns the match for the pronoun in the premise to disambiguate."""
-    pronoun_indices = get_all_pronoun_indices(premise)
-    scoredpronouns = [
-        get_pronoun_match(premise, hypothesis, index)
-        for index in pronoun_indices
-    ]
-    return max(scoredpronouns, key=lambda x: x.score)
+        match = get_best_pronoun_match(split_clean(premise),
+                                       split_clean(hypothesis))
+        targets = process_candidate(match.candidate, hypothesis)
+        inputs = '{} {}'.format(label,
+                                highlight(premise, match.index_in_premise))
+        return inputs, targets
 
-  def highlight(sentence, index):
-    words = sentence.split(' ')
-    word = words[index]
-    if word[-1] in ['.', ',', '!', '?']:
-      highlighted = '*{}* {}'.format(word[:-1], word[-1])
-    else:
-      highlighted = '*{}*'.format(word)
-    return ' '.join(words[:index] + [highlighted] + words[index + 1:])
-
-  def make_nonpossessive(word):
-    # WSC simple targets will never be possessive, even when the pronoun is
-    # possesive.
-    if word.endswith("'"):
-      return word[:-1]
-    elif word.endswith("'s"):
-      return word[:-2]
-    else:
-      return word
-
-  def clean_up(candidate):
-    words = candidate.split(' ')
-    # Sometimes the candidate extraction messes up, and the candidate will start
-    # with the start of the hypothesis and extend to the correct candidate. We
-    # can try to clean up the candidate in some cases by removing everything up
-    # to the last article in the sentence.
-    article_index = max(
-        [words.index(art) for art in {'a', 'an', 'the'} if art in words] or [0])
-    return ' '.join(words[article_index:])
-
-  def process_candidate(candidate, hypothesis):
-    """Handles special cases and adds proper punctuation/capitalization."""
-    candidate = clean_up(candidate)
-
-    pattern = '({})'.format(' '.join([
-        r'{}(?:\.|,|\?|\!)?'.format(re.escape(c)) for c in candidate.split(' ')
-    ]))
-    m = re.search(pattern, hypothesis, re.IGNORECASE)
-    if not m:
-      raise ValueError(
-          'Unable to find candidate "{}" in hypothesis "{}".'.format(
-              candidate, hypothesis))
-
-    candidate = m.group(1)
-    if candidate and candidate[-1] in ['.', ',', '!', '?']:
-      candidate = candidate[:-1]
-    return make_nonpossessive(candidate)
-
-  def compute_inputs_and_targets(premise, hypothesis):
-    """Compute inputs and targets for WNLI simple."""
-    premise = tf.compat.as_text(premise.numpy())
-    hypothesis = tf.compat.as_text(hypothesis.numpy())
-
-    match = get_best_pronoun_match(
-        split_clean(premise), split_clean(hypothesis))
-    targets = process_candidate(match.candidate, hypothesis)
-    inputs = '{} {}'.format(label, highlight(premise, match.index_in_premise))
-    return inputs, targets
-
-  inputs, targets = tf.py_function(
-      compute_inputs_and_targets,
-      inp=[x['sentence1'], x['sentence2']],
-      Tout=[tf.string, tf.string])
-  return {
-      # The reshape is necessary as otherwise the tensor has unknown rank.
-      'inputs': tf.reshape(inputs, shape=[]),
-      'targets': tf.reshape(targets, shape=[]),
-      'premise': x['sentence1'],
-      'hypothesis': x['sentence2'],
-      'label': x.get('label', 0),
-      'idx': x['idx'],
-  }
+    inputs, targets = tf.py_function(compute_inputs_and_targets,
+                                     inp=[x['sentence1'], x['sentence2']],
+                                     Tout=[tf.string, tf.string])
+    return {
+        # The reshape is necessary as otherwise the tensor has unknown rank.
+        'inputs': tf.reshape(inputs, shape=[]),
+        'targets': tf.reshape(targets, shape=[]),
+        'premise': x['sentence1'],
+        'hypothesis': x['sentence2'],
+        'label': x.get('label', 0),
+        'idx': x['idx'],
+    }
 
 
-def rank_classification(
-    ds: tf.data.Dataset,
-    inputs_fn: Callable[[FeatureType], tf.Tensor],
-    targets_fn: Callable[[FeatureType], tf.Tensor],
-    mode: str = 'eval',
-    label_key: str = 'label'
-) -> tf.data.Dataset:
-  """Prepare dataset for rank classification scoring.
+def rank_classification(ds: tf.data.Dataset,
+                        inputs_fn: Callable[[FeatureType], tf.Tensor],
+                        targets_fn: Callable[[FeatureType], tf.Tensor],
+                        mode: str = 'eval',
+                        label_key: str = 'label') -> tf.data.Dataset:
+    """Prepare dataset for rank classification scoring.
 
   Intended to be used with `rank_classification` postprocessor and metric.
 
@@ -1580,55 +1582,54 @@ def rank_classification(
   Returns:
     A tf.data.Dataset containing 'idx', inputs', 'targets', and 'is_correct'.
   """
-  if mode not in ('train', 'eval', 'fewshot_eval'):
-    raise ValueError(
-        "Mode must be one of 'train', 'eval', or 'fewshot_eval'. "
-        f"Got '{mode}'.")
+    if mode not in ('train', 'eval', 'fewshot_eval'):
+        raise ValueError(
+            "Mode must be one of 'train', 'eval', or 'fewshot_eval'. "
+            f"Got '{mode}'.")
 
-  def make_examples(idx, ex):
-    labels = tf.cast(ex[label_key], tf.int32)
-    if not labels.shape.rank:
-      labels = tf.expand_dims(labels, axis=0)
+    def make_examples(idx, ex):
+        labels = tf.cast(ex[label_key], tf.int32)
+        if not labels.shape.rank:
+            labels = tf.expand_dims(labels, axis=0)
 
-    inputs = inputs_fn(ex)
-    targets = targets_fn(ex)
+        inputs = inputs_fn(ex)
+        targets = targets_fn(ex)
 
-    tf.debugging.assert_equal(
-        tf.size(inputs), tf.size(targets),
-        '`inputs_fn` and `targets_fn` must return the same size tensors.')
-    num_classes = tf.shape(inputs)[0]
+        tf.debugging.assert_equal(
+            tf.size(inputs), tf.size(targets),
+            '`inputs_fn` and `targets_fn` must return the same size tensors.')
+        num_classes = tf.shape(inputs)[0]
 
-    tf.debugging.assert_less(
-        labels, num_classes,
-        'Label values must be less than the number of classes.')
+        tf.debugging.assert_less(
+            labels, num_classes,
+            'Label values must be less than the number of classes.')
 
-    is_correct = tf.cast(
-        tf.math.reduce_sum(tf.one_hot(labels, num_classes), axis=0), tf.bool)
+        is_correct = tf.cast(
+            tf.math.reduce_sum(tf.one_hot(labels, num_classes), axis=0),
+            tf.bool)
 
-    return {
-        'idx': tf.fill([num_classes], idx),
-        'inputs': inputs,
-        'targets': targets,
-        'is_correct': is_correct
-    }
+        return {
+            'idx': tf.fill([num_classes], idx),
+            'inputs': inputs,
+            'targets': targets,
+            'is_correct': is_correct
+        }
 
-  ds = ds.enumerate()
-  ds = ds.map(make_examples, num_parallel_calls=AUTOTUNE)
-  if mode != 'fewshot_eval':
-    ds = ds.unbatch()
-  if mode == 'train':
-    ds = ds.filter(lambda ex: ex['is_correct'])
-  return ds
+    ds = ds.enumerate()
+    ds = ds.map(make_examples, num_parallel_calls=AUTOTUNE)
+    if mode != 'fewshot_eval':
+        ds = ds.unbatch()
+    if mode == 'train':
+        ds = ds.filter(lambda ex: ex['is_correct'])
+    return ds
 
 
-def rank_classification_formatter(
-    ds: tf.data.Dataset,
-    inputs_formats: Union[str, Sequence[str]],
-    targets_formats: Union[str, Sequence[str]],
-    mode: str = 'eval',
-    label_key: str = 'label'
-) -> tf.data.Dataset:
-  """Create 'inputs' and 'targets' strings for ranking classification.
+def rank_classification_formatter(ds: tf.data.Dataset,
+                                  inputs_formats: Union[str, Sequence[str]],
+                                  targets_formats: Union[str, Sequence[str]],
+                                  mode: str = 'eval',
+                                  label_key: str = 'label') -> tf.data.Dataset:
+    """Create 'inputs' and 'targets' strings for ranking classification.
 
   Intended to be used with `rank_classification` postprocessor and metric.
 
@@ -1707,57 +1708,57 @@ def rank_classification_formatter(
   Returns:
     A tf.data.Dataset containing 'idx', inputs', 'targets', and 'is_correct'.
   """
-  if (isinstance(inputs_formats, (list, tuple)) and
-      isinstance(targets_formats, (list, tuple))):
-    if len(inputs_formats) != len(targets_formats):
-      raise ValueError(
-          f'The inputs_formats ({len(inputs_formats)}) and '
-          f'targets_formats ({len(targets_formats)}) are both instances '
-          'of list or tuple, but do not have matching lengths.')
-  elif isinstance(inputs_formats, (list, tuple)):
-    num_classes = len(inputs_formats)
-    targets_formats = [targets_formats] * num_classes
-  elif isinstance(targets_formats, (list, tuple)):
-    num_classes = len(targets_formats)
-    inputs_formats = [inputs_formats] * num_classes
-  else:
-    raise ValueError(
-        'One of the inputs_formats and targets_formats has to '
-        f'be a list or tuple, inputs_formats: {inputs_formats}, '
-        f'target_formats: {targets_formats}.')
-
-  def _format_str(features, fmt):
-    keys = set(re.findall(r'{(\S+)}', fmt))
-    s = fmt
-    for k in keys:
-      value = features
-      for subkey in k.split('/'):
-        value = value[subkey]
-      if not isinstance(value, tf.Tensor):
+    if (isinstance(inputs_formats, (list, tuple))
+            and isinstance(targets_formats, (list, tuple))):
+        if len(inputs_formats) != len(targets_formats):
+            raise ValueError(
+                f'The inputs_formats ({len(inputs_formats)}) and '
+                f'targets_formats ({len(targets_formats)}) are both instances '
+                'of list or tuple, but do not have matching lengths.')
+    elif isinstance(inputs_formats, (list, tuple)):
+        num_classes = len(inputs_formats)
+        targets_formats = [targets_formats] * num_classes
+    elif isinstance(targets_formats, (list, tuple)):
+        num_classes = len(targets_formats)
+        inputs_formats = [inputs_formats] * num_classes
+    else:
         raise ValueError(
-            f'Final value of key \'{k}\' must be a tf.string. '
-            f'Got: {type(value).__name__}')
-      tf.debugging.assert_type(
-          value, tf.string,
-          f'Final value of key \'{k}\' must be a tf.string. '
-          f'Got: {value.dtype.name}')
-      s = tf.strings.regex_replace(s, '{%s}' % k, value)
-    return s
+            'One of the inputs_formats and targets_formats has to '
+            f'be a list or tuple, inputs_formats: {inputs_formats}, '
+            f'target_formats: {targets_formats}.')
 
-  def _apply_formats(features, fmts):
-    return [_format_str(features, fmt) for fmt in fmts]
+    def _format_str(features, fmt):
+        keys = set(re.findall(r'{(\S+)}', fmt))
+        s = fmt
+        for k in keys:
+            value = features
+            for subkey in k.split('/'):
+                value = value[subkey]
+            if not isinstance(value, tf.Tensor):
+                raise ValueError(
+                    f'Final value of key \'{k}\' must be a tf.string. '
+                    f'Got: {type(value).__name__}')
+            tf.debugging.assert_type(
+                value, tf.string,
+                f'Final value of key \'{k}\' must be a tf.string. '
+                f'Got: {value.dtype.name}')
+            s = tf.strings.regex_replace(s, '{%s}' % k, value)
+        return s
 
-  return rank_classification(
-      ds,
-      inputs_fn=functools.partial(_apply_formats, fmts=inputs_formats),
-      targets_fn=functools.partial(_apply_formats, fmts=targets_formats),
-      mode=mode,
-      label_key=label_key)
+    def _apply_formats(features, fmts):
+        return [_format_str(features, fmt) for fmt in fmts]
+
+    return rank_classification(
+        ds,
+        inputs_fn=functools.partial(_apply_formats, fmts=inputs_formats),
+        targets_fn=functools.partial(_apply_formats, fmts=targets_formats),
+        mode=mode,
+        label_key=label_key)
 
 
 @utils.map_over_dataset
 def parse_tsv(line, field_names=None, field_delim='\t'):
-  """Splits TSV lines into dict examples mapping field name to string value.
+    """Splits TSV lines into dict examples mapping field name to string value.
 
   Args:
     line: an example containing a comma/tab-delimited string.
@@ -1768,14 +1769,14 @@ def parse_tsv(line, field_names=None, field_delim='\t'):
   Returns:
     A feature dict mapping field name to string value.
   """
-  field_names = field_names or ['inputs', 'targets']
-  return dict(
-      zip(field_names,
-          tf.io.decode_csv(
-              line,
-              record_defaults=[''] * len(field_names),
-              field_delim=field_delim,
-              use_quote_delim=False)))
+    field_names = field_names or ['inputs', 'targets']
+    return dict(
+        zip(
+            field_names,
+            tf.io.decode_csv(line,
+                             record_defaults=[''] * len(field_names),
+                             field_delim=field_delim,
+                             use_quote_delim=False)))
 
 
 @utils.map_over_dataset
@@ -1784,7 +1785,7 @@ def preprocess_tsv(line,
                    num_fields=2,
                    inputs_format='{0}',
                    targets_format='{1}'):
-  r"""Parse tab-delimited strings into inputs and targets.
+    r"""Parse tab-delimited strings into inputs and targets.
 
   This function takes a tf.data.Dataset of strings, each of which contains
   tab-delimited fields.  The function returns a tf.data.Dataset of feature
@@ -1818,34 +1819,35 @@ def preprocess_tsv(line,
   Returns:
     A feature dict with 'inputs' and 'targets' features.
   """
-  def _format_part(part, field_values):
-    found = re.findall(r'{(\d)}', part)
-    if found:
-      return field_values[int(found[0])]
-    else:
-      return part
+    def _format_part(part, field_values):
+        found = re.findall(r'{(\d)}', part)
+        if found:
+            return field_values[int(found[0])]
+        else:
+            return part
 
-  def _format(format_string, field_values):
-    parts = [_format_part(p, field_values)
-             for p in re.split(r'({\d})', format_string)]
-    return tf.strings.join(parts)
+    def _format(format_string, field_values):
+        parts = [
+            _format_part(p, field_values)
+            for p in re.split(r'({\d})', format_string)
+        ]
+        return tf.strings.join(parts)
 
-  field_values = tf.io.decode_csv(
-      line,
-      record_defaults=[''] * num_fields,
-      field_delim=field_delim,
-      use_quote_delim=False)
-  return {
-      'inputs': _format(inputs_format, field_values),
-      'targets': _format(targets_format, field_values)
-  }
+    field_values = tf.io.decode_csv(line,
+                                    record_defaults=[''] * num_fields,
+                                    field_delim=field_delim,
+                                    use_quote_delim=False)
+    return {
+        'inputs': _format(inputs_format, field_values),
+        'targets': _format(targets_format, field_values)
+    }
 
 
 # ======================Token Preprocessors=====================================
 
 
 def tokenize(dataset, output_features, copy_plaintext=True):
-  """Encode specified string features.
+    """Encode specified string features.
 
   Passes through non-string features unchanged. Optionally passes through copy
   of original string features with "_plaintext" suffix added to the key.
@@ -1860,9 +1862,8 @@ def tokenize(dataset, output_features, copy_plaintext=True):
   Returns:
     a tf.data.Dataset
   """
-
-  def my_fn(features):
-    """Encode all specified feature that are strings and return a dictionary.
+    def my_fn(features):
+        """Encode all specified feature that are strings and return a dictionary.
 
     Args:
       features: a dictionary
@@ -1870,93 +1871,86 @@ def tokenize(dataset, output_features, copy_plaintext=True):
     Returns:
       a dictionary
     """
-    ret = {}
-    for k, v in features.items():
-      if k in output_features and v.dtype == tf.string:
-        if copy_plaintext:
-          ret[f'{k}_plaintext'] = v
-        v = tf.cast(output_features[k].vocabulary.encode_tf(v), tf.int64)
-      ret[k] = v
-    return ret
+        ret = {}
+        for k, v in features.items():
+            if k in output_features and v.dtype == tf.string:
+                if copy_plaintext:
+                    ret[f'{k}_plaintext'] = v
+                v = tf.cast(output_features[k].vocabulary.encode_tf(v),
+                            tf.int64)
+            ret[k] = v
+        return ret
 
-  return dataset.map(my_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    return dataset.map(my_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
 # TODO(adarob): Add a test.
 def span_corruption(dataset, sequence_length, output_features):
-  """Final pretraining objective used in Raffel et al., 2019."""
-  ds = dataset
-  ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
-  ds = reduce_concat_tokens(ds, feature_key='targets', batch_size=128)
-  ds = split_tokens(
-      ds,
-      feature_key='targets',
-      min_tokens_per_segment=None,
-      max_tokens_per_segment=random_spans_helper(
-          extra_tokens_per_span_inputs=1,
-          extra_tokens_per_span_targets=1,
-          inputs_length=sequence_length['inputs'],
-          mean_noise_span_length=3.0,
-          noise_density=0.15
-      )[0]
-  )
-  ds = denoise(
-      ds,
-      output_features,
-      inputs_fn=noise_span_to_unique_sentinel,
-      targets_fn=nonnoise_span_to_unique_sentinel,
-      noise_density=0.15,
-      noise_mask_fn=functools.partial(
-          random_spans_noise_mask,
-          mean_noise_span_length=3.0
-      )
-  )
-  return ds
+    """Final pretraining objective used in Raffel et al., 2019."""
+    ds = dataset
+    ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
+    ds = reduce_concat_tokens(ds, feature_key='targets', batch_size=128)
+    ds = split_tokens(ds,
+                      feature_key='targets',
+                      min_tokens_per_segment=None,
+                      max_tokens_per_segment=random_spans_helper(
+                          extra_tokens_per_span_inputs=1,
+                          extra_tokens_per_span_targets=1,
+                          inputs_length=sequence_length['inputs'],
+                          mean_noise_span_length=3.0,
+                          noise_density=0.15)[0])
+    ds = denoise(ds,
+                 output_features,
+                 inputs_fn=noise_span_to_unique_sentinel,
+                 targets_fn=nonnoise_span_to_unique_sentinel,
+                 noise_density=0.15,
+                 noise_mask_fn=functools.partial(random_spans_noise_mask,
+                                                 mean_noise_span_length=3.0))
+    return ds
 
 
 # TODO(adarob): Add a test.
 def iid_denoising(dataset, sequence_length, output_features):
-  """Baseline pretraining objective used in Raffel et al., 2019."""
-  ds = dataset
-  ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
-  ds = reduce_concat_tokens(ds, feature_key='targets', batch_size=128)
-  ds = split_tokens_to_inputs_length(ds, sequence_length=sequence_length)
-  ds = denoise(
-      ds,
-      output_features,
-      inputs_fn=noise_span_to_unique_sentinel,
-      targets_fn=nonnoise_span_to_unique_sentinel,
-      noise_density=0.15,
-      noise_mask_fn=iid_noise_mask
-  )
-  return ds
+    """Baseline pretraining objective used in Raffel et al., 2019."""
+    ds = dataset
+    ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
+    ds = reduce_concat_tokens(ds, feature_key='targets', batch_size=128)
+    ds = split_tokens_to_inputs_length(ds, sequence_length=sequence_length)
+    ds = denoise(ds,
+                 output_features,
+                 inputs_fn=noise_span_to_unique_sentinel,
+                 targets_fn=nonnoise_span_to_unique_sentinel,
+                 noise_density=0.15,
+                 noise_mask_fn=iid_noise_mask)
+    return ds
 
 
 def prefix_lm(dataset, sequence_length, output_features):
-  """Prefix language modeling objective used in Raffel et al. 2019."""
-  ds = dataset
-  ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
-  ds = split_tokens_to_inputs_length(ds, sequence_length=sequence_length)
-  ds = denoise(
-      ds,
-      output_features,
-      inputs_fn=drop_nonnoise_tokens,
-      targets_fn=drop_noise_tokens,
-      noise_density=0.5,
-      noise_mask_fn=random_prefix_noise_mask,
-  )
-  return ds
+    """Prefix language modeling objective used in Raffel et al. 2019."""
+    ds = dataset
+    ds = select_random_chunk(ds, feature_key='targets', max_length=65536)
+    ds = split_tokens_to_inputs_length(ds, sequence_length=sequence_length)
+    ds = denoise(
+        ds,
+        output_features,
+        inputs_fn=drop_nonnoise_tokens,
+        targets_fn=drop_noise_tokens,
+        noise_density=0.5,
+        noise_mask_fn=random_prefix_noise_mask,
+    )
+    return ds
 
 
 @gin.configurable
 def select_random_chunk(dataset: tf.data.Dataset,
                         max_length: Optional[int] = None,
                         feature_key: str = 'targets',
-                        additional_feature_keys: Optional[Sequence[str]] = None,
+                        additional_feature_keys: Optional[
+                            Sequence[str]] = None,
                         sequence_length: Optional[Mapping[str, int]] = None,
                         uniform_random_start: bool = False,
                         **unused_kwargs) -> tf.data.Dataset:
-  """Token-preprocessor to extract one span of at most `max_length` tokens.
+    """Token-preprocessor to extract one span of at most `max_length` tokens.
 
   If the token sequence is longer than `max_length`, then we return a random
   subsequence.  Otherwise, we return the full sequence.
@@ -1981,14 +1975,14 @@ def select_random_chunk(dataset: tf.data.Dataset,
   Returns:
     a dataset
   """
-  if max_length is None and sequence_length is not None:
-    max_length = sequence_length[feature_key]
-  if max_length is None:
-    raise ValueError('Must specify max_length or sequence_length.')
+    if max_length is None and sequence_length is not None:
+        max_length = sequence_length[feature_key]
+    if max_length is None:
+        raise ValueError('Must specify max_length or sequence_length.')
 
-  @utils.map_over_dataset(num_seeds=1)
-  def _my_fn(x, seed):
-    """Select a random chunk of tokens.
+    @utils.map_over_dataset(num_seeds=1)
+    def _my_fn(x, seed):
+        """Select a random chunk of tokens.
 
     Args:
       x: a 1d Tensor
@@ -1996,39 +1990,37 @@ def select_random_chunk(dataset: tf.data.Dataset,
     Returns:
       a 1d Tensor
     """
-    tokens = x[feature_key]
-    n_tokens = tf.size(tokens)
-    if uniform_random_start:
-      start = tf.random.stateless_uniform(
-          [],
-          minval=-max_length + 1,  # pylint:disable=invalid-unary-operand-type
-          maxval=n_tokens,
-          dtype=tf.int32,
-          seed=seed)
-      end = tf.minimum(start + max_length, n_tokens)
-      start = tf.maximum(start, 0)
-    else:
-      num_segments = tf.cast(
-          tf.math.ceil(
-              tf.cast(n_tokens, tf.float32) / tf.cast(max_length, tf.float32)
-          ),
-          tf.int32)
-      start = max_length * tf.random.stateless_uniform(
-          [],
-          maxval=num_segments,
-          dtype=tf.int32,
-          seed=seed)
-      end = tf.minimum(start + max_length, n_tokens)
-    chunk = {feature_key: tokens[start:end]}
-    if additional_feature_keys is not None:
-      for k in additional_feature_keys:
-        with tf.control_dependencies([
-            tf.assert_equal(tf.size(tokens), tf.size(x[k]))]):
-          chunk[k] = x[k][start:end]
-    return chunk
-  # Filter empty examples.
-  dataset = dataset.filter(lambda x: tf.not_equal(tf.size(x[feature_key]), 0))
-  return _my_fn(dataset)
+        tokens = x[feature_key]
+        n_tokens = tf.size(tokens)
+        if uniform_random_start:
+            start = tf.random.stateless_uniform(
+                [],
+                minval=-max_length + 1,  # pylint:disable=invalid-unary-operand-type
+                maxval=n_tokens,
+                dtype=tf.int32,
+                seed=seed)
+            end = tf.minimum(start + max_length, n_tokens)
+            start = tf.maximum(start, 0)
+        else:
+            num_segments = tf.cast(
+                tf.math.ceil(
+                    tf.cast(n_tokens, tf.float32) /
+                    tf.cast(max_length, tf.float32)), tf.int32)
+            start = max_length * tf.random.stateless_uniform(
+                [], maxval=num_segments, dtype=tf.int32, seed=seed)
+            end = tf.minimum(start + max_length, n_tokens)
+        chunk = {feature_key: tokens[start:end]}
+        if additional_feature_keys is not None:
+            for k in additional_feature_keys:
+                with tf.control_dependencies(
+                    [tf.assert_equal(tf.size(tokens), tf.size(x[k]))]):
+                    chunk[k] = x[k][start:end]
+        return chunk
+
+    # Filter empty examples.
+    dataset = dataset.filter(
+        lambda x: tf.not_equal(tf.size(x[feature_key]), 0))
+    return _my_fn(dataset)
 
 
 @gin.configurable
@@ -2036,7 +2028,7 @@ def reduce_concat_tokens(dataset,
                          feature_key='targets',
                          batch_size=128,
                          **unused_kwargs):
-  """Token-preprocessor to concatenate multiple unrelated documents.
+    """Token-preprocessor to concatenate multiple unrelated documents.
 
   If we want to generate examples of exactly the right length,
   (to avoid wasting space on padding), then we use this function, folowed by
@@ -2050,16 +2042,18 @@ def reduce_concat_tokens(dataset,
   Returns:
     a dataset
   """
-  dataset = dataset.map(
-      lambda x: {feature_key: x[feature_key]}, num_parallel_calls=AUTOTUNE)
-  dataset = dataset.padded_batch(batch_size, padded_shapes={feature_key: [-1]})
-  def _my_fn(x):
-    tokens = tf.reshape(x[feature_key], [-1])
-    # strip padding
-    tokens = tf.boolean_mask(tokens, tf.cast(tokens, tf.bool))
-    return {feature_key: tokens}
+    dataset = dataset.map(lambda x: {feature_key: x[feature_key]},
+                          num_parallel_calls=AUTOTUNE)
+    dataset = dataset.padded_batch(batch_size,
+                                   padded_shapes={feature_key: [-1]})
 
-  return dataset.map(_my_fn, num_parallel_calls=AUTOTUNE)
+    def _my_fn(x):
+        tokens = tf.reshape(x[feature_key], [-1])
+        # strip padding
+        tokens = tf.boolean_mask(tokens, tf.cast(tokens, tf.bool))
+        return {feature_key: tokens}
+
+    return dataset.map(_my_fn, num_parallel_calls=AUTOTUNE)
 
 
 @utils.map_over_dataset
@@ -2067,7 +2061,7 @@ def trim_tokens_at_front(x,
                          sequence_length,
                          keys_to_trim=None,
                          **unused_kwargs):
-  """Token-preprocessor to trim sequence at the beginning.
+    """Token-preprocessor to trim sequence at the beginning.
 
   Args:
     x: an example with dictionaries containing keys_to_trim.
@@ -2078,16 +2072,16 @@ def trim_tokens_at_front(x,
     A preprocessed example.
   """
 
-  for key in (keys_to_trim or sequence_length.keys()):
-    if key in x:
-      # trim tokens, leaving room for EOS which gets added later
-      x[key] = x[key][-(sequence_length[key] - 1):]
-  return x
+    for key in (keys_to_trim or sequence_length.keys()):
+        if key in x:
+            # trim tokens, leaving room for EOS which gets added later
+            x[key] = x[key][-(sequence_length[key] - 1):]
+    return x
 
 
 @gin.configurable
 def take(dataset, num_examples=-1, **unused_kwargs):
-  """Takes the first `num_examples` examples from the dataset.
+    """Takes the first `num_examples` examples from the dataset.
 
   This is done to simulate that the dataset is smaller than it actually is. The
   result will be cached via `tf.data.Dataset.cache`.  This ensures that the same
@@ -2103,14 +2097,14 @@ def take(dataset, num_examples=-1, **unused_kwargs):
   Returns:
     A tf.data.Dataset with at most `num_examples` examples.
   """
-  if num_examples == -1:
-    return dataset
-  else:
-    return dataset.take(num_examples).cache()
+    if num_examples == -1:
+        return dataset
+    else:
+        return dataset.take(num_examples).cache()
 
 
 def trivia_qa_truncate_inputs(dataset, output_features, sequence_length):
-  """Token preprocessor for the trivia QA dataset to truncate inputs.
+    """Token preprocessor for the trivia QA dataset to truncate inputs.
 
   This function takes a dataset containing "targets" and "inputs". It searches
   for the "targets" in the "inputs" and truncates the "inputs" to
@@ -2150,21 +2144,20 @@ def trivia_qa_truncate_inputs(dataset, output_features, sequence_length):
 
   """
 
-  del output_features
+    del output_features
 
-  @utils.map_over_dataset(num_seeds=1)
-  def my_fn(features, seed):
-    """Function to map original dataset to the new dataset."""
-    inputs = features['inputs']
-    targets = features['targets']
-    ans_len = tf.shape(targets)[0]
-    max_input_tokens = sequence_length['inputs']
+    @utils.map_over_dataset(num_seeds=1)
+    def my_fn(features, seed):
+        """Function to map original dataset to the new dataset."""
+        inputs = features['inputs']
+        targets = features['targets']
+        ans_len = tf.shape(targets)[0]
+        max_input_tokens = sequence_length['inputs']
 
-    def truncate_inputs():
-      """Helper function to truncate the inputs."""
-
-      def answer_in_context(context, answer):
-        """Helper function that checks if the answer is present in the context.
+        def truncate_inputs():
+            """Helper function to truncate the inputs."""
+            def answer_in_context(context, answer):
+                """Helper function that checks if the answer is present in the context.
 
         Args:
           context: Tensor, tokenized representation of the context
@@ -2176,55 +2169,54 @@ def trivia_qa_truncate_inputs(dataset, output_features, sequence_length):
             the answer in the context. Indicates whether the answer starts at
             the particular position.
         """
-        conv_inp = tf.reshape(tf.cast(context, tf.float32), [1, -1, 1])
-        ans_len = tf.shape(answer)[0]
-        filters = tf.eye(ans_len, dtype=tf.float32)
+                conv_inp = tf.reshape(tf.cast(context, tf.float32), [1, -1, 1])
+                ans_len = tf.shape(answer)[0]
+                filters = tf.eye(ans_len, dtype=tf.float32)
 
-        # Assume context len is N and answer len is M.
-        # Use a convolution to create a matrix of (N-M) x M elements where
-        # each row of the matrix is a sequence of len M. This matrix contains
-        # all possible contiguous sequences of length M from the context.
-        # Every row of this matrix is compared with the answer to check if the
-        # answer exists in the context.
-        strided = tf.nn.conv1d(conv_inp,
-                               tf.reshape(filters, [ans_len, 1, ans_len]), 1,
-                               'VALID')
-        strided = tf.cast(strided[0], answer.dtype)
-        pos_mask = tf.reduce_all(
-            tf.equal(strided, tf.reshape(answer, [1, -1])), 1)
-        result = tf.reduce_any(pos_mask)
-        return result, pos_mask
+                # Assume context len is N and answer len is M.
+                # Use a convolution to create a matrix of (N-M) x M elements where
+                # each row of the matrix is a sequence of len M. This matrix contains
+                # all possible contiguous sequences of length M from the context.
+                # Every row of this matrix is compared with the answer to check if the
+                # answer exists in the context.
+                strided = tf.nn.conv1d(
+                    conv_inp, tf.reshape(filters, [ans_len, 1, ans_len]), 1,
+                    'VALID')
+                strided = tf.cast(strided[0], answer.dtype)
+                pos_mask = tf.reduce_all(
+                    tf.equal(strided, tf.reshape(answer, [1, -1])), 1)
+                result = tf.reduce_any(pos_mask)
+                return result, pos_mask
 
-      def slice_inputs(inputs, answer_len, pos_mask, seed=None):
-        """Helper function to slice inputs while keeping the answer."""
-        ans_start_pos = tf.cast(tf.where(pos_mask)[0][0], tf.int32)
-        inputs_len = tf.shape(inputs)[0]
-        start_range_min = tf.maximum(
-            0, ans_start_pos - (max_input_tokens - answer_len))
-        start_range_max = tf.minimum(ans_start_pos,
-                                     inputs_len - max_input_tokens) + 1
+            def slice_inputs(inputs, answer_len, pos_mask, seed=None):
+                """Helper function to slice inputs while keeping the answer."""
+                ans_start_pos = tf.cast(tf.where(pos_mask)[0][0], tf.int32)
+                inputs_len = tf.shape(inputs)[0]
+                start_range_min = tf.maximum(
+                    0, ans_start_pos - (max_input_tokens - answer_len))
+                start_range_max = tf.minimum(ans_start_pos,
+                                             inputs_len - max_input_tokens) + 1
 
-        start_pos = tf.random.stateless_uniform(
-            [],
-            minval=start_range_min,
-            maxval=start_range_max,
-            dtype=tf.int32,
-            seed=seed)
-        return inputs[start_pos:start_pos + max_input_tokens]
+                start_pos = tf.random.stateless_uniform([],
+                                                        minval=start_range_min,
+                                                        maxval=start_range_max,
+                                                        dtype=tf.int32,
+                                                        seed=seed)
+                return inputs[start_pos:start_pos + max_input_tokens]
 
-      result, pos_mask = answer_in_context(inputs, targets)
+            result, pos_mask = answer_in_context(inputs, targets)
 
-      if result:
-        return slice_inputs(inputs, ans_len, pos_mask, seed=seed)
-      else:
-        return tf.constant([], dtype=inputs.dtype)
+            if result:
+                return slice_inputs(inputs, ans_len, pos_mask, seed=seed)
+            else:
+                return tf.constant([], dtype=inputs.dtype)
 
-    if tf.greater(tf.shape(inputs)[0], max_input_tokens):
-      inputs = truncate_inputs()
-    return {'inputs': inputs, 'targets': features['targets']}
+        if tf.greater(tf.shape(inputs)[0], max_input_tokens):
+            inputs = truncate_inputs()
+        return {'inputs': inputs, 'targets': features['targets']}
 
-  dataset = my_fn(dataset)
-  return dataset.filter(lambda x: tf.size(x['inputs']) > 0)
+    dataset = my_fn(dataset)
+    return dataset.filter(lambda x: tf.size(x['inputs']) > 0)
 
 
 @gin.configurable()
@@ -2232,7 +2224,7 @@ def unsupervised(dataset,
                  preprocessors=None,
                  output_features=None,
                  sequence_length=None):
-  """Configure this to point at unsupervised preprocessors.
+    """Configure this to point at unsupervised preprocessors.
 
    This function creates an extra level of indirection in case we want
    different unsupervised pretraining functions in the future which do not
@@ -2252,22 +2244,22 @@ def unsupervised(dataset,
   Returns:
     A preprocessed tf.data.Dataset.
   """
-  if preprocessors is None:
-    logging.warning(
-        'unsupervised preprocessor got preprocessors=None; no preprocessing '
-        'will be applied.'
-    )
+    if preprocessors is None:
+        logging.warning(
+            'unsupervised preprocessor got preprocessors=None; no preprocessing '
+            'will be applied.')
+        return dataset
+
+    kwargs = {}
+    if output_features:
+        kwargs['output_features'] = output_features
+    if sequence_length:
+        kwargs['sequence_length'] = sequence_length
+
+    for p in preprocessors:
+        dataset = p(dataset, **kwargs)
     return dataset
 
-  kwargs = {}
-  if output_features:
-    kwargs['output_features'] = output_features
-  if sequence_length:
-    kwargs['sequence_length'] = sequence_length
-
-  for p in preprocessors:
-    dataset = p(dataset, **kwargs)
-  return dataset
 
 # ======================== split_tokens and helpers ============================
 
@@ -2280,7 +2272,7 @@ def split_tokens(dataset: tf.data.Dataset,
                  additional_feature_keys: Optional[Sequence[str]] = None,
                  passthrough_feature_keys: Optional[Sequence[str]] = None,
                  **unused_kwargs) -> tf.data.Dataset:
-  """Split examples into multiple examples each.
+    """Split examples into multiple examples each.
 
   The intended use case is to break up long examples for use in unsupervised
   transfer-learning.
@@ -2305,84 +2297,81 @@ def split_tokens(dataset: tf.data.Dataset,
   Returns:
     a dataset
   """
-  @utils.map_over_dataset(num_seeds=1)
-  def _split_tokens(x, seed):
-    """Split one token sequence into multiple sequences."""
-    tokens = x[feature_key]
-    n_tokens = tf.size(tokens)
-    if min_tokens_per_segment is None:
-      length = max_tokens_per_segment
-    else:
-      # pick a length - log-uniformly distributed
-      length = tf.cast(
-          tf.exp(
-              tf.random.stateless_uniform(
-                  [],
-                  minval=math.log(min_tokens_per_segment),
-                  maxval=math.log(max_tokens_per_segment),
-                  seed=seed
-              )
-          ),
-          tf.int32)
+    @utils.map_over_dataset(num_seeds=1)
+    def _split_tokens(x, seed):
+        """Split one token sequence into multiple sequences."""
+        tokens = x[feature_key]
+        n_tokens = tf.size(tokens)
+        if min_tokens_per_segment is None:
+            length = max_tokens_per_segment
+        else:
+            # pick a length - log-uniformly distributed
+            length = tf.cast(
+                tf.exp(
+                    tf.random.stateless_uniform(
+                        [],
+                        minval=math.log(min_tokens_per_segment),
+                        maxval=math.log(max_tokens_per_segment),
+                        seed=seed)), tf.int32)
 
-    # Pad to a multiple of length, then use tf.reshape to split up the tokens
-    # into num_segments segments each of the given length.
-    num_segments = tf.cast(
-        tf.math.ceil(
-            tf.cast(n_tokens, tf.float32) / tf.cast(length, tf.float32))
-        ,
-        tf.int32)
-    padding = num_segments * length - tf.size(tokens)
-    padded = tf.pad(tokens, [[0, padding]])
-    outputs = {feature_key: tf.reshape(padded, [-1, length])}
-    if additional_feature_keys is not None:
-      for k in additional_feature_keys:
-        with tf.control_dependencies([
-            tf.assert_equal(tf.size(tokens), tf.size(x[k]))]):
-          padded = tf.pad(x[k], [[0, padding]])
-          outputs[k] = tf.reshape(padded, [-1, length])
-    if passthrough_feature_keys:
-      for k in passthrough_feature_keys:
-        outputs[k] = tf.tile(x[k][tf.newaxis, :], [num_segments, 1])
-    return outputs
+        # Pad to a multiple of length, then use tf.reshape to split up the tokens
+        # into num_segments segments each of the given length.
+        num_segments = tf.cast(
+            tf.math.ceil(
+                tf.cast(n_tokens, tf.float32) / tf.cast(length, tf.float32)),
+            tf.int32)
+        padding = num_segments * length - tf.size(tokens)
+        padded = tf.pad(tokens, [[0, padding]])
+        outputs = {feature_key: tf.reshape(padded, [-1, length])}
+        if additional_feature_keys is not None:
+            for k in additional_feature_keys:
+                with tf.control_dependencies(
+                    [tf.assert_equal(tf.size(tokens), tf.size(x[k]))]):
+                    padded = tf.pad(x[k], [[0, padding]])
+                    outputs[k] = tf.reshape(padded, [-1, length])
+        if passthrough_feature_keys:
+            for k in passthrough_feature_keys:
+                outputs[k] = tf.tile(x[k][tf.newaxis, :], [num_segments, 1])
+        return outputs
 
-  @utils.map_over_dataset
-  def _strip_padding(x):
-    output = {}
-    for k, v in x.items():
-      if passthrough_feature_keys and k in passthrough_feature_keys:
-        output[k] = v
-      else:
-        output[k] = tf.boolean_mask(v, tf.cast(v, tf.bool))
-    return output
+    @utils.map_over_dataset
+    def _strip_padding(x):
+        output = {}
+        for k, v in x.items():
+            if passthrough_feature_keys and k in passthrough_feature_keys:
+                output[k] = v
+            else:
+                output[k] = tf.boolean_mask(v, tf.cast(v, tf.bool))
+        return output
 
-  # Filter empty examples.
-  dataset = dataset.filter(lambda x: tf.not_equal(tf.size(x[feature_key]), 0))
-  dataset = _split_tokens(dataset)
-  dataset = dataset.unbatch()
-  return _strip_padding(dataset)
+    # Filter empty examples.
+    dataset = dataset.filter(
+        lambda x: tf.not_equal(tf.size(x[feature_key]), 0))
+    dataset = _split_tokens(dataset)
+    dataset = dataset.unbatch()
+    return _strip_padding(dataset)
 
 
 @gin.configurable
 def split_tokens_to_inputs_length(dataset, sequence_length, **kwargs):
-  return split_tokens(dataset,
-                      max_tokens_per_segment=sequence_length['inputs'],
-                      **kwargs)
+    return split_tokens(dataset,
+                        max_tokens_per_segment=sequence_length['inputs'],
+                        **kwargs)
 
 
 @gin.configurable
 def split_tokens_to_targets_length(dataset, sequence_length, **kwargs):
-  return split_tokens(dataset,
-                      max_tokens_per_segment=sequence_length['targets'],
-                      **kwargs)
+    return split_tokens(dataset,
+                        max_tokens_per_segment=sequence_length['targets'],
+                        **kwargs)
 
 
 @gin.configurable
 def split_tokens_to_random_length(dataset, sequence_length, **kwargs):
-  return split_tokens(dataset,
-                      min_tokens_per_segment=8,
-                      max_tokens_per_segment=sequence_length['inputs'],
-                      **kwargs)
+    return split_tokens(dataset,
+                        min_tokens_per_segment=8,
+                        max_tokens_per_segment=sequence_length['inputs'],
+                        **kwargs)
 
 
 @gin.configurable
@@ -2392,7 +2381,7 @@ def random_spans_helper(inputs_length=gin.REQUIRED,
                         extra_tokens_per_span_inputs=gin.REQUIRED,
                         extra_tokens_per_span_targets=gin.REQUIRED,
                         verbose=False):
-  """Training parameters to avoid padding with random_spans_noise_mask.
+    """Training parameters to avoid padding with random_spans_noise_mask.
 
   When training a model with random_spans_noise_mask, we would like to set the
   other training hyperparmeters in a way that avoids padding.  This function
@@ -2416,48 +2405,47 @@ def random_spans_helper(inputs_length=gin.REQUIRED,
     tokens_length: length of original text in tokens
     targets_length: an integer - length in tokens of encoded targets sequence
   """
-  def _tokens_length_to_inputs_length_targets_length(tokens_length):
-    num_noise_tokens = int(round(tokens_length * noise_density))
-    num_nonnoise_tokens = tokens_length - num_noise_tokens
-    num_noise_spans = int(round(num_noise_tokens / mean_noise_span_length))
-    # inputs contain all nonnoise tokens, sentinels for all noise spans
-    # and one EOS token.
-    return (
-        num_nonnoise_tokens +
-        num_noise_spans * extra_tokens_per_span_inputs + 1,
-        num_noise_tokens +
-        num_noise_spans * extra_tokens_per_span_targets + 1)
+    def _tokens_length_to_inputs_length_targets_length(tokens_length):
+        num_noise_tokens = int(round(tokens_length * noise_density))
+        num_nonnoise_tokens = tokens_length - num_noise_tokens
+        num_noise_spans = int(round(num_noise_tokens / mean_noise_span_length))
+        # inputs contain all nonnoise tokens, sentinels for all noise spans
+        # and one EOS token.
+        return (num_nonnoise_tokens +
+                num_noise_spans * extra_tokens_per_span_inputs + 1,
+                num_noise_tokens +
+                num_noise_spans * extra_tokens_per_span_targets + 1)
 
-  tokens_length = inputs_length
-  while (_tokens_length_to_inputs_length_targets_length(tokens_length + 1)[0]
-         <= inputs_length):
-    tokens_length += 1
-  inputs_length, targets_length = (
-      _tokens_length_to_inputs_length_targets_length(tokens_length))
-  # minor hack to get the targets length to be equal to inputs length
-  # which is more likely to have been set to a nice round number.
-  if noise_density == 0.5 and targets_length > inputs_length:
-    tokens_length -= 1
-    targets_length -= 1
-  if verbose:
-    logging.info(
-        'tokens_length=%s inputs_length=%s targets_length=%s '
-        'noise_density=%s mean_noise_span_length=%s ',
-        tokens_length, inputs_length, targets_length,
-        noise_density, mean_noise_span_length)
-  return tokens_length, targets_length
+    tokens_length = inputs_length
+    while (_tokens_length_to_inputs_length_targets_length(tokens_length + 1)[0]
+           <= inputs_length):
+        tokens_length += 1
+    inputs_length, targets_length = (
+        _tokens_length_to_inputs_length_targets_length(tokens_length))
+    # minor hack to get the targets length to be equal to inputs length
+    # which is more likely to have been set to a nice round number.
+    if noise_density == 0.5 and targets_length > inputs_length:
+        tokens_length -= 1
+        targets_length -= 1
+    if verbose:
+        logging.info(
+            'tokens_length=%s inputs_length=%s targets_length=%s '
+            'noise_density=%s mean_noise_span_length=%s ', tokens_length,
+            inputs_length, targets_length, noise_density,
+            mean_noise_span_length)
+    return tokens_length, targets_length
 
 
 @gin.configurable
 def random_spans_tokens_length():
-  """Helper for gin-configuring split_tokens with random_spans_noise_mask."""
-  return random_spans_helper()[0]
+    """Helper for gin-configuring split_tokens with random_spans_noise_mask."""
+    return random_spans_helper()[0]
 
 
 @gin.configurable
 def random_spans_targets_length():
-  """Helper for gin-configuring the targets sequence length."""
-  return random_spans_helper()[1]
+    """Helper for gin-configuring the targets sequence length."""
+    return random_spans_helper()[1]
 
 
 # ========================== denoise and helpers ===============================
@@ -2471,7 +2459,7 @@ def denoise(dataset,
             inputs_fn=gin.REQUIRED,
             targets_fn=None,
             **unused_kwargs):
-  """Gin-configurable token preprocessor for self-supervised denoising tasks.
+    """Gin-configurable token preprocessor for self-supervised denoising tasks.
 
   This function takes a dataset containing "targets" sequences,
   and turns each sequence into a dictionary containing:
@@ -2513,30 +2501,36 @@ def denoise(dataset,
   Returns:
     A preprocessed tf.data.Dataset.
   """
-  @utils.map_over_dataset(num_seeds=6)
-  def my_fn(features, seeds):
-    """Map function."""
-    tokens = features['targets']
-    vocabulary = output_features['targets'].vocabulary
-    if ('inputs' in output_features and
-        vocabulary != output_features['inputs'].vocabulary):
-      raise ValueError(
-          'denoise creates inputs based on tokenized targets but was applied '
-          'to a task that uses different vocabularies for inputs and targets.'
-      )
-    noise_mask = noise_mask_fn(tf.size(tokens), noise_density, seeds=seeds[:2])
-    inputs = inputs_fn(tokens, noise_mask, vocabulary, seeds=seeds[2:4])
-    if targets_fn:
-      targets = targets_fn(tokens, noise_mask, vocabulary, seeds=seeds[4:6])
-    else:
-      targets = tokens
-    return {'inputs': inputs, 'targets': targets}
-  return my_fn(dataset)
+    @utils.map_over_dataset(num_seeds=6)
+    def my_fn(features, seeds):
+        """Map function."""
+        tokens = features['targets']
+        vocabulary = output_features['targets'].vocabulary
+        if ('inputs' in output_features
+                and vocabulary != output_features['inputs'].vocabulary):
+            raise ValueError(
+                'denoise creates inputs based on tokenized targets but was applied '
+                'to a task that uses different vocabularies for inputs and targets.'
+            )
+        noise_mask = noise_mask_fn(tf.size(tokens),
+                                   noise_density,
+                                   seeds=seeds[:2])
+        inputs = inputs_fn(tokens, noise_mask, vocabulary, seeds=seeds[2:4])
+        if targets_fn:
+            targets = targets_fn(tokens,
+                                 noise_mask,
+                                 vocabulary,
+                                 seeds=seeds[4:6])
+        else:
+            targets = tokens
+        return {'inputs': inputs, 'targets': targets}
+
+    return my_fn(dataset)
 
 
 @gin.configurable()
 def iid_noise_mask(length, noise_density, seeds):
-  """Independent and identically distributed token noise.
+    """Independent and identically distributed token noise.
 
   Args:
     length: an int32 scalar
@@ -2546,7 +2540,7 @@ def iid_noise_mask(length, noise_density, seeds):
   Returns:
     a boolean tensor with shape [length]
   """
-  return tf.random.stateless_uniform([length], seed=seeds[0]) < noise_density
+    return tf.random.stateless_uniform([length], seed=seeds[0]) < noise_density
 
 
 @gin.configurable()
@@ -2555,7 +2549,7 @@ def regular_noise_mask(length,
                        seeds,
                        min_span_length=1,
                        max_span_length=5):
-  """Noise mask consisting of equally spaced spans of equal length.
+    """Noise mask consisting of equally spaced spans of equal length.
 
   The span length and the offset are chosen randomly per-example.
   The beginning and end of the sequence may be part of shorter spans of noise.
@@ -2574,20 +2568,18 @@ def regular_noise_mask(length,
   Returns:
     a boolean tensor with shape [length]
   """
-  span_length = tf.random.stateless_uniform(
-      [],
-      minval=min_span_length,
-      maxval=max_span_length + 1,
-      dtype=tf.int32,
-      seed=seeds[0])
-  period = tf.cast(
-      tf.round(tf.cast(span_length, tf.float32) / noise_density), tf.int32)
-  offset = tf.random.stateless_uniform(
-      [],
-      maxval=period,
-      dtype=tf.int32,
-      seed=seeds[1])
-  return (tf.range(length, dtype=tf.int32) + offset) % period < span_length
+    span_length = tf.random.stateless_uniform([],
+                                              minval=min_span_length,
+                                              maxval=max_span_length + 1,
+                                              dtype=tf.int32,
+                                              seed=seeds[0])
+    period = tf.cast(
+        tf.round(tf.cast(span_length, tf.float32) / noise_density), tf.int32)
+    offset = tf.random.stateless_uniform([],
+                                         maxval=period,
+                                         dtype=tf.int32,
+                                         seed=seeds[1])
+    return (tf.range(length, dtype=tf.int32) + offset) % period < span_length
 
 
 @gin.configurable()
@@ -2595,7 +2587,7 @@ def random_spans_noise_mask(length,
                             noise_density,
                             seeds,
                             mean_noise_span_length=3.0):
-  """Noise mask consisting of random spans of noise tokens.
+    """Noise mask consisting of random spans of noise tokens.
 
   The number of noise tokens and the number of noise spans and non-noise spans
   are determined deterministically as follows:
@@ -2617,24 +2609,28 @@ def random_spans_noise_mask(length,
     a boolean tensor with shape [length]
   """
 
-  orig_length = length
-  # increase length to avoid degeneracy
-  length = tf.maximum(length, 2)
-  def to_int(x):
-    return tf.cast(x, tf.int32)
-  def to_float(x):
-    return tf.cast(x, tf.float32)
-  num_noise_tokens = to_int(tf.round(to_float(length) * noise_density))
-  # avoid degeneracy by ensuring positive numbers of noise and nonnoise tokens.
-  num_noise_tokens = tf.minimum(tf.maximum(num_noise_tokens, 1), length - 1)
-  num_noise_spans = to_int(
-      tf.round(to_float(num_noise_tokens) / mean_noise_span_length))
-  # avoid degeneracy by ensuring positive number of noise spans
-  num_noise_spans = tf.maximum(num_noise_spans, 1)
-  num_nonnoise_tokens = length - num_noise_tokens
-  # pick the lengths of the noise spans and the non-noise spans
-  def _random_segmentation(num_items, num_segments, seed):
-    """Partition a sequence of items randomly into non-empty segments.
+    orig_length = length
+    # increase length to avoid degeneracy
+    length = tf.maximum(length, 2)
+
+    def to_int(x):
+        return tf.cast(x, tf.int32)
+
+    def to_float(x):
+        return tf.cast(x, tf.float32)
+
+    num_noise_tokens = to_int(tf.round(to_float(length) * noise_density))
+    # avoid degeneracy by ensuring positive numbers of noise and nonnoise tokens.
+    num_noise_tokens = tf.minimum(tf.maximum(num_noise_tokens, 1), length - 1)
+    num_noise_spans = to_int(
+        tf.round(to_float(num_noise_tokens) / mean_noise_span_length))
+    # avoid degeneracy by ensuring positive number of noise spans
+    num_noise_spans = tf.maximum(num_noise_spans, 1)
+    num_nonnoise_tokens = length - num_noise_tokens
+
+    # pick the lengths of the noise spans and the non-noise spans
+    def _random_segmentation(num_items, num_segments, seed):
+        """Partition a sequence of items randomly into non-empty segments.
 
     Args:
       num_items: an integer scalar > 0
@@ -2644,32 +2640,33 @@ def random_spans_noise_mask(length,
       a Tensor with shape [num_segments] containing positive integers that add
       up to num_items
     """
-    first_in_segment = tf.pad(
-        utils.stateless_shuffle(
-            to_int(tf.range(num_items - 1) < num_segments - 1),
-            seed),
-        [[1, 0]])
-    segment_id = tf.cumsum(first_in_segment)
-    segment_length = tf.math.segment_sum(tf.ones_like(segment_id), segment_id)
-    return segment_length
-  noise_span_lengths = _random_segmentation(
-      num_noise_tokens, num_noise_spans, seeds[0])
-  nonnoise_span_lengths = _random_segmentation(
-      num_nonnoise_tokens, num_noise_spans, seeds[1])
-  interleaved_span_lengths = tf.reshape(
-      tf.stack([nonnoise_span_lengths, noise_span_lengths], axis=1),
-      [num_noise_spans * 2])
-  span_starts = tf.cumsum(interleaved_span_lengths)[:-1]
-  span_start_indicator = tf.math.unsorted_segment_sum(
-      tf.ones_like(span_starts), span_starts, length)
-  span_num = tf.cumsum(span_start_indicator)
-  is_noise = tf.equal(span_num % 2, 1)
-  return is_noise[:orig_length]
+        first_in_segment = tf.pad(
+            utils.stateless_shuffle(
+                to_int(tf.range(num_items - 1) < num_segments - 1), seed),
+            [[1, 0]])
+        segment_id = tf.cumsum(first_in_segment)
+        segment_length = tf.math.segment_sum(tf.ones_like(segment_id),
+                                             segment_id)
+        return segment_length
+
+    noise_span_lengths = _random_segmentation(num_noise_tokens,
+                                              num_noise_spans, seeds[0])
+    nonnoise_span_lengths = _random_segmentation(num_nonnoise_tokens,
+                                                 num_noise_spans, seeds[1])
+    interleaved_span_lengths = tf.reshape(
+        tf.stack([nonnoise_span_lengths, noise_span_lengths], axis=1),
+        [num_noise_spans * 2])
+    span_starts = tf.cumsum(interleaved_span_lengths)[:-1]
+    span_start_indicator = tf.math.unsorted_segment_sum(
+        tf.ones_like(span_starts), span_starts, length)
+    span_num = tf.cumsum(span_start_indicator)
+    is_noise = tf.equal(span_num % 2, 1)
+    return is_noise[:orig_length]
 
 
 @gin.configurable()
 def random_prefix_noise_mask(length, noise_density, seeds):
-  """First part of the sequence is noise (for prefix_lm).
+    """First part of the sequence is noise (for prefix_lm).
 
   The length of the prefix is chosen uniformly between [1, length)
   noise_density must be 0.5
@@ -2683,23 +2680,22 @@ def random_prefix_noise_mask(length, noise_density, seeds):
   Returns:
     a boolean tensor with shape [length]
   """
-  if noise_density != 0.5:
-    raise NotImplementedError(
-        'noise density must equal 0.5 for random_prefix_noise_mask')
-  max_input_tokens = length - 1
-  min_input_tokens = tf.minimum(max_input_tokens, 1)
-  num_input_tokens = tf.random.stateless_uniform(
-      [],
-      minval=min_input_tokens,
-      maxval=max_input_tokens + 1,
-      dtype=tf.int32,
-      seed=seeds[0])
-  return tf.range(length, dtype=tf.int32) < num_input_tokens
+    if noise_density != 0.5:
+        raise NotImplementedError(
+            'noise density must equal 0.5 for random_prefix_noise_mask')
+    max_input_tokens = length - 1
+    min_input_tokens = tf.minimum(max_input_tokens, 1)
+    num_input_tokens = tf.random.stateless_uniform([],
+                                                   minval=min_input_tokens,
+                                                   maxval=max_input_tokens + 1,
+                                                   dtype=tf.int32,
+                                                   seed=seeds[0])
+    return tf.range(length, dtype=tf.int32) < num_input_tokens
 
 
 @gin.configurable()
 def sentinel_id(vocabulary, return_value=None):
-  """Token ID to use as a sentinel.
+    """Token ID to use as a sentinel.
 
   By default, we use the last token in the vocabulary.
 
@@ -2709,14 +2705,14 @@ def sentinel_id(vocabulary, return_value=None):
   Returns:
     an integer
   """
-  if return_value is not None:
-    return return_value
-  return vocabulary.vocab_size - 1
+    if return_value is not None:
+        return return_value
+    return vocabulary.vocab_size - 1
 
 
 @gin.configurable()
 def noise_token_to_sentinel(tokens, noise_mask, vocabulary, seeds):
-  """Replace each noise token with the given sentinel.
+    """Replace each noise token with the given sentinel.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2727,15 +2723,14 @@ def noise_token_to_sentinel(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del seeds
-  return tf.where(noise_mask,
-                  tf.cast(sentinel_id(vocabulary), tokens.dtype),
-                  tokens)
+    del seeds
+    return tf.where(noise_mask, tf.cast(sentinel_id(vocabulary), tokens.dtype),
+                    tokens)
 
 
 @gin.configurable()
 def noise_span_to_sentinel(tokens, noise_mask, vocabulary, seeds):
-  """Replace each run of consecutive noise tokens with a single sentinel.
+    """Replace each run of consecutive noise tokens with a single sentinel.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2745,24 +2740,23 @@ def noise_span_to_sentinel(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del seeds
-  tokens = tf.where(noise_mask,
-                    tf.cast(sentinel_id(vocabulary), tokens.dtype),
-                    tokens)
-  prev_token_is_noise = tf.pad(noise_mask[:-1], [[1, 0]])
-  subsequent_noise_tokens = tf.logical_and(noise_mask, prev_token_is_noise)
-  return tf.boolean_mask(tokens, tf.logical_not(subsequent_noise_tokens))
+    del seeds
+    tokens = tf.where(noise_mask, tf.cast(sentinel_id(vocabulary),
+                                          tokens.dtype), tokens)
+    prev_token_is_noise = tf.pad(noise_mask[:-1], [[1, 0]])
+    subsequent_noise_tokens = tf.logical_and(noise_mask, prev_token_is_noise)
+    return tf.boolean_mask(tokens, tf.logical_not(subsequent_noise_tokens))
 
 
 @gin.configurable()
 def nonnoise_span_to_sentinel(tokens, noise_mask, vocabulary, seeds):
-  return noise_span_to_sentinel(
-      tokens, tf.logical_not(noise_mask), vocabulary, seeds)
+    return noise_span_to_sentinel(tokens, tf.logical_not(noise_mask),
+                                  vocabulary, seeds)
 
 
 @gin.configurable()
 def noise_span_to_unique_sentinel(tokens, noise_mask, vocabulary, seeds):
-  """Replace each run of consecutive noise tokens with a different sentinel.
+    """Replace each run of consecutive noise tokens with a different sentinel.
 
   The idea here is to be able to align the dropped spans in the inputs
   with the markers in the targets.
@@ -2786,30 +2780,31 @@ def noise_span_to_unique_sentinel(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del seeds
+    del seeds
 
-  vocab_size = vocabulary.vocab_size
-  prev_token_is_noise = tf.pad(noise_mask[:-1], [[1, 0]])
+    vocab_size = vocabulary.vocab_size
+    prev_token_is_noise = tf.pad(noise_mask[:-1], [[1, 0]])
 
-  first_noise_tokens = tf.logical_and(
-      noise_mask, tf.logical_not(prev_token_is_noise))
-  subsequent_noise_tokens = tf.logical_and(noise_mask, prev_token_is_noise)
+    first_noise_tokens = tf.logical_and(noise_mask,
+                                        tf.logical_not(prev_token_is_noise))
+    subsequent_noise_tokens = tf.logical_and(noise_mask, prev_token_is_noise)
 
-  sentinel = vocab_size - tf.cumsum(tf.cast(first_noise_tokens, tokens.dtype))
+    sentinel = vocab_size - tf.cumsum(tf.cast(first_noise_tokens,
+                                              tokens.dtype))
 
-  tokens = tf.where(first_noise_tokens, sentinel, tokens)
-  return tf.boolean_mask(tokens, tf.logical_not(subsequent_noise_tokens))
+    tokens = tf.where(first_noise_tokens, sentinel, tokens)
+    return tf.boolean_mask(tokens, tf.logical_not(subsequent_noise_tokens))
 
 
 @gin.configurable()
 def nonnoise_span_to_unique_sentinel(tokens, noise_mask, vocabulary, seeds):
-  return noise_span_to_unique_sentinel(
-      tokens, tf.logical_not(noise_mask), vocabulary, seeds)
+    return noise_span_to_unique_sentinel(tokens, tf.logical_not(noise_mask),
+                                         vocabulary, seeds)
 
 
 @gin.configurable()
 def drop_noise_tokens(tokens, noise_mask, vocabulary, seeds):
-  """Drop noise tokens without inserting a sentinel.
+    """Drop noise tokens without inserting a sentinel.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2820,14 +2815,14 @@ def drop_noise_tokens(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del vocabulary
-  del seeds
-  return tf.boolean_mask(tokens, tf.logical_not(noise_mask))
+    del vocabulary
+    del seeds
+    return tf.boolean_mask(tokens, tf.logical_not(noise_mask))
 
 
 @gin.configurable()
 def drop_nonnoise_tokens(tokens, noise_mask, vocabulary, seeds):
-  """Drop non-noise tokens without inserting a sentinel.
+    """Drop non-noise tokens without inserting a sentinel.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2837,14 +2832,14 @@ def drop_nonnoise_tokens(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del vocabulary
-  del seeds
-  return tf.boolean_mask(tokens, noise_mask)
+    del vocabulary
+    del seeds
+    return tf.boolean_mask(tokens, noise_mask)
 
 
 @gin.configurable()
 def permute_noise_tokens(tokens, noise_mask, vocabulary, seeds):
-  """Permute the noise tokens, keeping the non-noise tokens where they are.
+    """Permute the noise tokens, keeping the non-noise tokens where they are.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2854,21 +2849,19 @@ def permute_noise_tokens(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del vocabulary
+    del vocabulary
 
-  masked_only = tf.boolean_mask(tokens, noise_mask)
-  permuted = utils.stateless_shuffle(masked_only, seeds[0])
-  # pad to avoid errors when it has size 0
-  permuted = tf.pad(permuted, [[0, 1]])
-  indices = tf.cumsum(tf.cast(noise_mask, tf.int32), exclusive=True)
-  return tf.where(noise_mask,
-                  tf.gather(permuted, indices),
-                  tokens)
+    masked_only = tf.boolean_mask(tokens, noise_mask)
+    permuted = utils.stateless_shuffle(masked_only, seeds[0])
+    # pad to avoid errors when it has size 0
+    permuted = tf.pad(permuted, [[0, 1]])
+    indices = tf.cumsum(tf.cast(noise_mask, tf.int32), exclusive=True)
+    return tf.where(noise_mask, tf.gather(permuted, indices), tokens)
 
 
 @gin.configurable()
 def noise_token_to_gathered_token(tokens, noise_mask, vocabulary, seeds):
-  """Replace each noise token with a random token from the sequence.
+    """Replace each noise token with a random token from the sequence.
 
   Args:
     tokens: a 1d integer Tensor
@@ -2878,26 +2871,22 @@ def noise_token_to_gathered_token(tokens, noise_mask, vocabulary, seeds):
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  del vocabulary
+    del vocabulary
 
-  indices = tf.random.stateless_uniform(
-      shape=tf.shape(tokens),
-      maxval=tf.size(tokens),
-      dtype=tf.int32,
-      seed=seeds[0])
-  return tf.where(noise_mask,
-                  tf.gather(tokens, indices),
-                  tokens)
+    indices = tf.random.stateless_uniform(shape=tf.shape(tokens),
+                                          maxval=tf.size(tokens),
+                                          dtype=tf.int32,
+                                          seed=seeds[0])
+    return tf.where(noise_mask, tf.gather(tokens, indices), tokens)
 
 
 @gin.configurable()
-def noise_token_to_random_token(
-    tokens,
-    noise_mask,
-    vocabulary,
-    seeds,
-    num_reserved_tokens=3):
-  """Replace each noise token with a random token from the vocabulary.
+def noise_token_to_random_token(tokens,
+                                noise_mask,
+                                vocabulary,
+                                seeds,
+                                num_reserved_tokens=3):
+    """Replace each noise token with a random token from the vocabulary.
 
 
 
@@ -2910,24 +2899,22 @@ def noise_token_to_random_token(
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  return tf.where(noise_mask,
-                  tf.random.stateless_uniform(
-                      tf.shape(tokens),
-                      minval=num_reserved_tokens,
-                      maxval=vocabulary.vocab_size,
-                      dtype=tokens.dtype,
-                      seed=seeds[0]),
-                  tokens)
+    return tf.where(
+        noise_mask,
+        tf.random.stateless_uniform(tf.shape(tokens),
+                                    minval=num_reserved_tokens,
+                                    maxval=vocabulary.vocab_size,
+                                    dtype=tokens.dtype,
+                                    seed=seeds[0]), tokens)
 
 
 @gin.configurable()
-def noise_token_to_random_token_or_sentinel(
-    tokens,
-    noise_mask,
-    vocabulary,
-    seeds,
-    random_prob=0.1):
-  """Replace each noise token with a random token or a sentinel.
+def noise_token_to_random_token_or_sentinel(tokens,
+                                            noise_mask,
+                                            vocabulary,
+                                            seeds,
+                                            random_prob=0.1):
+    """Replace each noise token with a random token or a sentinel.
 
   For each masked token, with probability random_prob, we replace it by a
   random token from the vocabulary.  Otherwise, we replace it with a sentinel.
@@ -2941,15 +2928,15 @@ def noise_token_to_random_token_or_sentinel(
   Returns:
     a Tensor with the same shape and dtype as tokens
   """
-  use_random = (
-      tf.random.stateless_uniform(tf.shape(tokens), seed=seeds[0]) <
-      random_prob)
-  return tf.where(
-      use_random,
-      noise_token_to_random_token(
-          tokens, noise_mask, vocabulary, seeds=seeds[1:]),
-      noise_token_to_sentinel(
-          tokens, noise_mask, vocabulary, seeds=()))
+    use_random = (tf.random.stateless_uniform(tf.shape(tokens), seed=seeds[0])
+                  < random_prob)
+    return tf.where(
+        use_random,
+        noise_token_to_random_token(tokens,
+                                    noise_mask,
+                                    vocabulary,
+                                    seeds=seeds[1:]),
+        noise_token_to_sentinel(tokens, noise_mask, vocabulary, seeds=()))
 
 
 # ==========================Deprecated=========================================
@@ -2957,5 +2944,6 @@ def noise_token_to_random_token_or_sentinel(
 
 @gin.configurable
 def num_parallel_calls(deterministic=False):
-  """DEPRECATED: Cannot be removed to preserve gin backward compatibility."""
-  raise NotImplementedError('`num_paralell_calls` is deprecated. Do not use.')
+    """DEPRECATED: Cannot be removed to preserve gin backward compatibility."""
+    raise NotImplementedError(
+        '`num_paralell_calls` is deprecated. Do not use.')

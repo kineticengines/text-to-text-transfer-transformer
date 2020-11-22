@@ -11,36 +11,40 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for asserts."""
 
 from absl.testing import absltest
 from t5.data.test_utils import assert_dataset
-import tensorflow.compat.v2 as tf
-
-tf.compat.v1.enable_eager_execution()
+import tensorflow as tf
 
 
 # Note that the b'string' values are for PY3 to interpret as bytes literals,
 # which match the tf.data.Dataset from tensor slices.
 class TestUtilsTest(absltest.TestCase):
+    def test_assert_dataset(self):
+        first_dataset = tf.data.Dataset.from_tensor_slices({
+            'key1': ['val1'],
+            'key2': ['val2']
+        })
 
-  def test_assert_dataset(self):
-    first_dataset = tf.data.Dataset.from_tensor_slices(
-        {'key1': ['val1'], 'key2': ['val2']})
+        # Equal
+        assert_dataset(first_dataset, {'key1': [b'val1'], 'key2': [b'val2']})
 
-    # Equal
-    assert_dataset(first_dataset, {'key1': [b'val1'], 'key2': [b'val2']})
+        # Unequal value
+        with self.assertRaises(AssertionError):
+            assert_dataset(first_dataset, {
+                'key1': [b'val1'],
+                'key2': [b'val2x']
+            })
 
-    # Unequal value
-    with self.assertRaises(AssertionError):
-      assert_dataset(first_dataset, {'key1': [b'val1'], 'key2': [b'val2x']})
-
-    # Additional key, value
-    with self.assertRaises(AssertionError):
-      assert_dataset(first_dataset,
-                     {'key1': [b'val1'], 'key2': [b'val2'], 'key3': [b'val3']})
+        # Additional key, value
+        with self.assertRaises(AssertionError):
+            assert_dataset(first_dataset, {
+                'key1': [b'val1'],
+                'key2': [b'val2'],
+                'key3': [b'val3']
+            })
 
 
 if __name__ == '__main__':
-  absltest.main()
+    absltest.main()
