@@ -1,4 +1,4 @@
-# A mini-modified [T5: Text-To-Text Transfer Transformer] version ## for kineticengines
+# A mini-modified [T5: Text-To-Text Transfer Transformer] version for kineticengines
 
 
 ### Sync to main T5 Library 
