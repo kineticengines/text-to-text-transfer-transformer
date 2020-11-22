@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Install T5."""
 
 import os
@@ -25,7 +24,7 @@ from version import __version__  # pylint: disable=g-import-not-at-top
 
 # Get the long description from the README file.
 with open('README.md') as fp:
-  _LONG_DESCRIPTION = fp.read()
+    _LONG_DESCRIPTION = fp.read()
 
 setuptools.setup(
     name='t5',
@@ -46,24 +45,25 @@ setuptools.setup(
         'absl-py',
         'babel',
         'gin-config',
-        'mesh-tensorflow[transformer]>=0.1.13',
+        'mesh-tensorflow[transformer]>=0.1.17',
         'nltk',
-        'numpy',
+        'numpy>=1.19.4',
         'pandas',
         'rouge-score',
         'sacrebleu',
         'scikit-learn',
         'scipy',
-        'sentencepiece',
+        'sentencepiece>=0.1.91',
         'six>=1.14',  # TODO(adarob): Remove once rouge-score is updated.
-        'tensorflow-text',
+        'tensorflow-text>=2.4.0-rc0',
         'tfds-nightly',
-        'torch',
-        'transformers>=2.7.0',
+        'transformers>=3.5.1',
     ],
     extras_require={
-        'gcp': ['gevent', 'google-api-python-client', 'google-compute-engine',
-                'google-cloud-storage', 'oauth2client'],
+        'gcp': [
+            'gevent', 'google-api-python-client', 'google-compute-engine',
+            'google-cloud-storage', 'oauth2client'
+        ],
         'cache-tasks': ['apache-beam'],
         'test': ['pytest'],
     },

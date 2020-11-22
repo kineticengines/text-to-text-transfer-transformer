@@ -1,6 +1,12 @@
-# A mini-modified [T5: Text-To-Text Transfer Transformer] version to suite `kineticengines` 
+# A mini-modified [T5: Text-To-Text Transfer Transformer] version ## for kineticengines
 
 
+### Sync to main T5 Library 
+
+```sh
+  git checkout mirror-main && git rebase origin/master
+  git push mirror mirror-main
+```
 
 
 [![Build Status](https://github.com/google-research/text-to-text-transfer-transformer/workflows/build/badge.svg)](https://github.com/google-research/text-to-text-transfer-transformer/actions?query=workflow%3Abuild)
