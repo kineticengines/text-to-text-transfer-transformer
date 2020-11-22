@@ -57,6 +57,8 @@ setuptools.setup(
         'six>=1.14',  # TODO(adarob): Remove once rouge-score is updated.
         'tensorflow-text>=2.4.0-rc0',
         'tfds-nightly',
+        'tf-nightly',
+        'tf-nightly-gpu',
         'transformers>=3.5.1',
     ],
     extras_require={
