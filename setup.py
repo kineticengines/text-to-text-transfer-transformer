@@ -55,9 +55,9 @@ setuptools.setup(
         'scipy',
         'sentencepiece>=0.1.91',
         'six>=1.14',  # TODO(adarob): Remove once rouge-score is updated.
-        'tensorflow-text>=2.4.0-rc0',
+        'tensorflow-text==2.4.0-rc0',
         'tfds-nightly',
-        'tensorflow>=2.4.0rc0',
+        'tensorflow==2.4.0rc0',
         'transformers>=3.5.1',
     ],
     extras_require={
