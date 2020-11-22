@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Import model modules."""
 
 import t5.models.mesh_transformer
 from t5.models.mtf_model import MtfModel
-from t5.models.hf_model import HfPyTorchModel
